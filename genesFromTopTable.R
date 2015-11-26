@@ -1,4 +1,17 @@
-
+#' Extract a list (a characyer vector indeed) of genes from a topTable outputted by the limma software
+#' @param filename
+#' @param entrezOnly
+#' @param adjOrrawP
+#' @param Pcutoff
+#' @param FCcutoff
+#' @param id2select
+#' @param cols2select
+#' @param return
+#' @keywords
+#' @seealso
+#' @export
+#' @examples
+#'
 genesFromTopTable <- function (filename, entrezOnly = TRUE, 
                                adjOrrawP = "adj",
                                Pcutoff = 0.05,
