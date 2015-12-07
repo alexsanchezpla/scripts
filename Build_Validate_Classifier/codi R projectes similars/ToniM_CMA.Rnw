@@ -1,0 +1,258 @@
+<<lectura,echo=F>>=
+library(CMA)
+library(reshape)
+library(ggplot2)
+library(xtable)
+library(impute)
+library(car)
+set.seed(26032015)
+nitercma<-20
+nkfold<-5
+ntop<-20
+ngenelda<-20
+ngeneqda<-8
+normalization_method<-'pareto'
+FARMA<-F
+AGE<-F
+subtit<-paste('Analysis with ',normalization_method,' scaling.',sep='')
+if (FARMA & AGE) subtit<-paste('Analysis with ',normalization_method,' scaling and adjusted for drug intake and age.',sep='')
+if (!FARMA & AGE) subtit<-paste('Analysis with ',normalization_method,' scaling and adjusted for age.',sep='')
+if (FARMA & !AGE) subtit<-paste('Analysis with ',normalization_method,' scaling and adjusted for drug intake.',sep='')
+source('obesity.work.R')
+obesity<-read.table('OBESITYF.csv',header=T,sep=';',dec=',',na.strings='NA')
+#
+# Group and sex are converted to factors
+#
+obesity$Fen_Group<-factor(obesity$Fen_Group,labels=c('HealthThin','HealthObese','DiabThin','DiabObese'))
+
+
+@
+
+
+\section{Analysis of the four groups: All individuals }
+<<clasvar2,echo=FALSE>>=
+clinic<-c(6:28)
+clinicn<-colnames(obesity)[clinic]
+metab<-c(29:353)
+metabn<-colnames(obesity)[metab]
+@
+<<echo=FALSE>>=
+obesity.sub<-obesity
+@
+
+
+<<preprocessing,echo=FALSE>>=
+
+
+obesity.sub2<-zero2na(obesity.sub,metab) # Convertim 0's en NA
+obesity.sub3<-depurXXnas(obesity.sub2,metab,obesity.sub2$Fen_Group,0.25)
+metab<-obesity.sub3$vars
+obesity.sub3<-obesity.sub3$data
+metabn<-colnames(obesity.sub3)[metab]
+vardepur<-ncol(obesity.sub2)-ncol(obesity.sub3)
+@
+<<imputation,echo=FALSE>>=
+ob3aux<-obesity.sub3[,-c(1:4)]
+ob3aux2<-t(ob3aux)
+ob3i<-impute.knn(as.matrix(ob3aux2))
+obesity.sub3i<-cbind(obesity.sub3[,c(1:4)],t(ob3i$data))
+@
+<<normalize,echo=FALSE>>=
+
+obesity.sub3i<-normalize(obesity.sub3i,clinic,obesity.sub3i$Fen_Group,'auto')
+obesity.sub3inormal<-normalize(obesity.sub3i,metab,obesity.sub3i$Fen_Group,normalization_method)
+@ 
+
+% Calculem els residus del model amb els farmacs
+<<farmac,echo=FALSE>>=
+if (FARMA & AGE){
+for (i in c(clinic,metab)){
+ fit.lm<-lm(obesity.sub3inormal[,i]~medinfl0+medhta0+medcol0+age,data=obesity.sub3i)
+ b<-step(fit.lm,trace=0)
+ obesity.sub3inormal[,i]<-b$residuals
+}
+}
+if (!FARMA & AGE){
+for (i in c(clinic,metab)){
+ fit.lm<-lm(obesity.sub3inormal[,i]~age,data=obesity.sub3i)
+ b<-step(fit.lm,trace=0)
+ obesity.sub3inormal[,i]<-b$residuals
+}
+}
+if (FARMA & !AGE){
+for (i in c(clinic,metab)){
+ fit.lm<-lm(obesity.sub3inormal[,i]~medinfl0+medhta0+medcol0,data=obesity.sub3i)
+ b<-step(fit.lm,trace=0)
+ obesity.sub3inormal[,i]<-b$residuals
+}
+}
+@
+
+
+\subsection{Summary of the data}
+<<summa,echo=FALSE,results=tex>>=
+sumtable<-xtable(as.table(summary(obesity.sub$Fen_Group)))
+colnames(sumtable)<-'Sample size'
+print(sumtable)
+@
+
+\Sexpr{vardepur} metabolic variables have been removed and \Sexpr{length(metab)} are kept.   
+
+
+\clearpage
+
+\subsection{Variable selection with CMA package}
+         
+From now on we will make use of the imputed data set. The methods we have used to select variables are:
+           
+\begin{itemize}
+  \item f-test: F test belonging to the linear hypothesis that the mean is the same for all classes.
+  \item kruskal test; Multi-class generalization of the Wilcoxon rank sum test and the nonparametric pendant to the F test.
+  \item limma: 'Moderated t' statistic for the two-class case and 'moderated F' statistic for the multiclass case, described in Smyth (2003).
+  \item random forest: Random Forest Variable Importance Measure. 
+\end{itemize}
+         
+All of them allow the multi-class comparison.
+
+The scheme to generate divisions into learning sets and test sets is ordinary cross-validation (CV) with \Sexpr{nkfold} groups and \Sexpr{nitercma} iterations.
+         
+\subsubsection{Clinical variables}
+         
+<<echo=FALSE,results=hide>>=
+
+names<-c('f-test','kruskal','limma','randomforest')
+obesity.subY<-obesity.sub3i[, 'Fen_Group']
+fiveCV10iter<-GenerateLearningsets(y=obesity.subY,method='CV',fold=nkfold,niter=nitercma,strat=T)
+clinic_genesel_f <- GeneSelection(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets= fiveCV10iter, method = "f.test")
+clinic_genesel_kru <- GeneSelection(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets= fiveCV10iter, method = "kruskal.test")
+clinic_genesel_lim <- GeneSelection(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets= fiveCV10iter, method = "limma")
+clinic_genesel_rf <- GeneSelection(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets= fiveCV10iter, method = "rf")
+# display the ntop top-ranking clinical variables 
+tab <- cbind(f.test = toplist(clinic_genesel_f, k=ntop,s = F) [, 1],kru.test = toplist(clinic_genesel_kru, k=ntop,s = F) [, 1],lim.test = toplist(clinic_genesel_lim, k=ntop,s = F) [, 1],rf.test = toplist(clinic_genesel_rf,k=ntop,s = F) [, 1])             
+rownames(tab) <- paste("top", 1:ntop, sep = ".")
+for (i in 1:ncol(tab)){
+  for (j in 1:nrow(tab)) tab[j,i]<-clinicn[as.numeric(tab[j,i])]
+}
+tabt<-xtable(tab,caption=paste('top-',ntop,' selected clinical variables with CAM package',sep=''))
+@
+<<echo=F,results=tex>>=
+print(tabt,table.placement='!ht')
+@
+<<echo=FALSE,results=tex>>=
+print(xtable(table(drop(tab)),caption=paste('top-',ntop,' selected clinical variables',sep='')),include.colnames=F)
+@
+<<fig=T,echo=FALSE>>=
+venn(tabt,names)
+@
+ 
+
+\clearpage
+\subsubsection{Metabolic variables with \Sexpr{normalization_method}}
+<<echo=F,results=hide>>=
+metab.normal_genesel_f <- GeneSelection(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets= fiveCV10iter, method = "f.test")
+metab.normal_genesel_kru <- GeneSelection(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets= fiveCV10iter, method = "kruskal.test")
+metab.normal_genesel_lim <- GeneSelection(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets= fiveCV10iter, method = "limma")
+metab.normal_genesel_rf <- GeneSelection(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets= fiveCV10iter, method = "rf")
+# display the ntop top-ranking metabolic variables 
+tab <- cbind(f.test = toplist(metab.normal_genesel_f, k=ntop,s = F) [, 1],kru.test = toplist(metab.normal_genesel_kru, k=ntop,s = F) [, 1],lim.test = toplist(metab.normal_genesel_lim, k=ntop,s = F) [, 1],rf.test = toplist(metab.normal_genesel_rf,k=ntop,s = F) [, 1])
+ rownames(tab) <- paste("top", 1:ntop, sep = ".")
+ for (i in 1:ncol(tab)){
+    for (j in 1:nrow(tab)) tab[j,i]<-metabn[as.numeric(tab[j,i])]
+}
+tabt<-xtable(tab,caption=paste('top-',ntop,' selected metabolic variables normalized with ',normalization_method,sep=''))
+@
+<<echo=F,results=tex>>=
+print(tabt,table.placement='!ht')
+@
+<<echo=FALSE,results=tex>>=
+print(xtable(table(drop(tab)),caption=paste('top-',ntop,' selected metabolic variables normalized with ',normalization_method,sep='')),include.colnames=F)
+@
+<<fig=T,echo=FALSE>>=
+venn(tabt,names)
+@
+
+\clearpage
+
+\subsection{Classification with CMA}
+
+We have used the following methods:
+
+\begin{itemize}
+\item dlda: diagonal discriminant analysis under the assumption of a multivariate normal distribution in each classes (with equal, diagonally structured) covariance matrices.
+\item lda:  linear discriminant analysis under the assumption of a multivariate normal distribution in each classes (with equal, but generally structured) covariance matrices.
+\item qda: quadratic discriminant analysis under the assumption of a multivariate normal distribution in each classes without restriction concerning the covariance matrices.
+\item pls-da: classifier that extracts Partial Least Squares components that are plugged into Linear Discriminant Analysis. 
+\item scda: nearest shrunken centroid classification algorithm.
+\end{itemize}
+
+The number of best genes to be kept for classification is 10 for lda and 5 for qda.
+
+<<echo=FALSE,include=FALSE,print=FALSE,warning=FALSE,results=hide,message=FALSE>>=
+# hyperparameter tuning
+clinic.tune_pls <- tune(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY,learningsets = fiveCV10iter, classifier = pls_ldaCMA,grids = list(),trace=F)
+
+clinic.tune_scda <- tune(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY,learningsets = fiveCV10iter, classifier = scdaCMA,grids = list(),trace=F)
+
+
+metab.normal.tune_pls <- tune(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY,learningsets = fiveCV10iter, classifier = pls_ldaCMA,grids = list(),trace=F)
+
+metab.normal.tune_scda <- tune(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY,learningsets = fiveCV10iter, classifier = scdaCMA,grids = list(),trace=F)
+
+
+@
+
+\clearpage
+
+\subsubsection{Clinical variables}
+
+<<classification_clinic,echo=FALSE,warning=FALSE,results=hide>>=
+clinic.class_dlda <- classification(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets = fiveCV10iter, classifier = dldaCMA,trace=F)
+clinic.class_lda <- classification(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets = fiveCV10iter, classifier = ldaCMA,nbgene=ngenelda,genesel=clinic_genesel_rf,trace=F)
+clinic.class_qda <- classification(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets = fiveCV10iter, classifier = qdaCMA,nbgene=ngeneqda,genesel=clinic_genesel_rf,trace=F)
+clinic.class_plsda <- classification(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets = fiveCV10iter, classifier = pls_ldaCMA,tuneres=clinic.tune_pls,trace=F)
+clinic.class_scda <- classification(X = as.matrix(obesity.sub3i[,clinic]), y = obesity.subY, learningsets = fiveCV10iter, classifier = scdaCMA,tuneres=clinic.tune_scda,trace=F)
+
+
+classifier.list<-list(clinic.class_dlda,clinic.class_lda,clinic.class_qda,clinic.class_plsda,clinic.class_scda)
+@
+<<clinic_comparison,fig=TRUE,echo=FALSE>>=
+par(mfrow=c(3,1))
+clinic.comparison<-compare(classifier.list,plot=T,measure=c('misclassification','brier score','average probability'))
+@
+<<echo=FALSE,results=tex,message=FALSE>>=
+comptc<-xtable(clinic.comparison,caption='Classification results of clinical variables')
+print(comptc,table.placement='!ht')
+@
+
+\clearpage
+
+\subsubsection{Metabolic variables with \Sexpr{normalization_method}}
+
+<<metab.normal_clinic,echo=FALSE,warning=FALSE,results=hide,message=FALSE>>=
+metab.normal.class_dlda <- classification(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets = fiveCV10iter, classifier = dldaCMA,trace=F)
+metab.normal.class_lda <- classification(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets = fiveCV10iter, classifier = ldaCMA,nbgene=10,genesel=metab.normal_genesel_rf,trace=F)
+metab.normal.class_qda <- classification(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets = fiveCV10iter, classifier = qdaCMA,nbgene=5,genesel=metab.normal_genesel_rf,trace=F)
+metab.normal.class_plsda <- classification(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets = fiveCV10iter, classifier = pls_ldaCMA,tuneres=metab.normal.tune_pls,trace=F)
+metab.normal.class_scda <- classification(X = as.matrix(obesity.sub3inormal[,metab]), y = obesity.subY, learningsets = fiveCV10iter, classifier = scdaCMA,tuneres=metab.normal.tune_scda,trace=F)
+
+
+classifier.list<-list(metab.normal.class_dlda,metab.normal.class_lda,metab.normal.class_qda,metab.normal.class_plsda,metab.normal.class_scda)
+@
+<<metabnormal_comparison,fig=TRUE,echo=FALSE>>=
+par(mfrow=c(3,1))
+metab.normal.comparison<-compare(classifier.list,plot=T,measure=c('misclassification','brier score','average probability'))
+@
+<<echo=FALSE,results=tex,message=FALSE>>=
+comptm<-xtable(metab.normal.comparison,caption=paste('Classification results of metabolic variables with ',normalization_method,sep=''))
+print(comptm,table.placement='h!')
+@
+
+<<echo=FALSE>>=
+taulac<-list()
+taulam<-list()
+name<-c()
+index_taula<-1
+name[index_taula]<-'Four groups classification'
+taulac[[index_taula]]<-comptc
+taulam[[index_taula]]<-comptm
+@
