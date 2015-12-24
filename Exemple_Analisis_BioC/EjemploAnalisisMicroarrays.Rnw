@@ -65,7 +65,7 @@ El análisis se ha realizado siguiendo las pautas descritas en los capítulos 6 
 
 \subsection{Métodos de análisis}
 
-Antes de hibridar los microarrays\footnote{Esta primera parte es ficticia en tanto que no hemos tendio acceso al proceso de laboración de los microarrays, por lo que he escrito lo que suele ponerse en esta parte} se comprobó la calidad del cRNA de cada muestra. Sólo las que demostraron una calidad suficiente --presumiblemente un valor de ``Bio-analyser''\footnote{Sistema para el análisi de la calidad del RNA} igual o superior a 7-- se sometieron a análisis posterior. Las imágenes resultantes del escaneado de los microarrays se procesaron con Microarray Analysis Suite 5.0 (Affymetrix). 
+Antes de hibridar los microarrays\footnote{Esta primera parte es ficticia en tanto que no hemos tendio acceso al proceso de elaboración de los microarrays, por lo que he escrito lo que suele ponerse en esta parte} se comprobó la calidad del cRNA de cada muestra. Sólo las que demostraron una calidad suficiente --presumiblemente un valor de ``Bio-analyser''\footnote{Sistema para el análisi de la calidad del RNA} igual o superior a 7-- se sometieron a análisis posterior.. 
 
 Los valores ``crudos'' de expresión obtenidos directamente de los archivos CEL se preprocesa utilizando el método de RMA (\cite{Irizarry:2003}), un proceso de tres pasos que integra la corrección de fondo, la normalización y el resumen de los valores del grupo de sondas en un único valor de expresión ``absoluta''. Dichos valores normalizados fueron la base para todos los análisis.
 
@@ -85,16 +85,10 @@ que organizan los genes a lo largo de dos dimensiones que podemos considerar de 
 
 Con el fin de hacer frente a la problemática derivada del hecho de que muchas pruebas (una por cada gen) se realizan simultáneamente, se realizo un ajuste de p--valores para obtener control sobre la tasa de falsos positivos usando el método de Benjamini y Hochberg (\cite{BenjaminiHochberg:1995}).
 
-%The analysis and comparison of expression profiles along time was performed using 
-%two complimentary methods: Generalized MANOVA with empirical Bayes moderation, 
-%developed by Tai \etal (\cite{Tai:2005}) and linear regression along time as 
-%adapted to microarray studies by Conesa \etal \cite{Conesa:2006}. Both methods 
-%allow to detect genes whose expression profiles change along time either from 
-%baseline or differently between conditions.
 
 
 Los genes seleccionados como diferencialmente expresados se agruparon para buscar patrones comunes de expresión entre condiciones experimentales.
-Para ello se utilizaron mapas de colores o ``HEatmaps'' que realizan una agrupación jerárquica de los genes y/o las muestras y la representan mediante una gama de colores apropiada, de forma que valores altos o bajos se corresponden a colores distintos de la gama escogida.
+Para ello se utilizaron mapas de colores o ``Heatmaps'' que realizan una agrupación jerárquica de los genes y/o las muestras y la representan mediante una gama de colores apropiada, de forma que valores altos o bajos se corresponden a colores distintos de la gama escogida.
 
 Las listas de genes diferencialmente expresados se anotaron en diversas bases de datos (Entrez, Unigene, Gene Ontology, KEGG, ...) utilizando los paquetes de anotación para microarrays de affymetrix disponibles en el proyecto Bioconductor (\url{http://bioconductor.org}).
 
