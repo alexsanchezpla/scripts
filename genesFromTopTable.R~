@@ -13,9 +13,9 @@
 #' @export
 #' @examples
 #'
-
 genesFromTopTable <- function (aTopTable,
                                filename=NULL, 
+                               listsDir=NULL,
                                entrezOnly = TRUE, 
                                uniqueIds=TRUE, 
                                adjOrrawP = "adj",
@@ -66,5 +66,3 @@ genesFromTopTable <- function (aTopTable,
   if(uniqueIds) geneList <- unique(geneList)
   return(geneList)
 }
-
-
