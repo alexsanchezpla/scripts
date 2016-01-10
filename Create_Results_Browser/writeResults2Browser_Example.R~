@@ -1,0 +1,39 @@
+###
+### Exemple d'utilitzacio
+###
+
+ linksFileName <-"Links.ANJA150.txt"
+ resultsDir <- "."
+ UEB <- TRUE
+ htmlInfo <- list(To = "Antoni Jauset",                                    # nomClients,
+                 Description = "Selection of differentially expressed genes", # titolEstudi,
+                 Analysts = "Ricardo Gonzalo and Alex Sanchez",               # analistes,
+                 Contact = "Alex Sanchez (alex.sanchez@vhir.org)"
+ )
+  misCategs <- c("Result Summary",
+                "Data",
+                "Quality Control",
+                "Pre-processing",
+                "Analysis",
+                "Annotations",
+                "Multiple Comparisons",
+                "Cluster",
+                "GO Analysis",
+                "KEGG Analysis",
+                "Ingenuity Pathways Analysis",
+                "Power Analysis")
+  misNombres <- c("INFO", "DATA", "QC", "NORM", "ANALYSIS",
+                                "ANNOT", "MULTCOMP", "CLUSTER", "GO", "KEGG", "IPA", "POWER")
+  
+source ("writeResults2Browser.R")
+
+LinksFile2Html(linksFileName,
+                 resultsDir,
+                 htmlInfo,
+                 categs.list = misCategs,
+                 names.list = misNombres,
+                 IndexDir = "ResultFiles/",   # IndexDir : "ResultFiles/" (Paràmetre opcional)
+                 UEB = UEB)                   # si UEB = TRUE => Capçalera UEB (indicat al parametros.XXX.R)
+
+
+

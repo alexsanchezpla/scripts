@@ -380,7 +380,7 @@ El paquete \Rpackage{arrayQualitMetrics} encapsula todos los análisis anteriore
 
 <<arrayQuality, eval=TRUE>>=
 stopifnot(require(arrayQualityMetrics))
-arrayQualityMetrics(rawData, outdir = file.path(resultsDir, "arrayQuality"), 
+arrayQualityMetrics(rawData, outdir = file.path(resultsDir, "Qual/arrayQuality"), 
                     force=TRUE)
 @
 
