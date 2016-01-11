@@ -28,7 +28,7 @@ document()
 check()
 # per instalar 
 setwd(pkgDir)
-# install("links2File")  # desde local
+install("links2File")  # desde local
 
 
 install_github('alexsanchezpla/scripts/Rpackages/links2File') # desde github
