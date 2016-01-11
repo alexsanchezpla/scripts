@@ -27,7 +27,7 @@ LinksFile2Html(linksFileName,
                htmlInfo,
                categs.descs = fCategs,
                categs.names = fCategs,
-               IndexDir = "",   # IndexDir : "ResultFiles/" (Paràmetre opcional)
+               IndexDir = "",   # IndexDir : "results/" (Optional)
                UEB = UEB,      
                resultsFileName="Resultats")
 
