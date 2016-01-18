@@ -474,7 +474,12 @@ logarı́tmica y en ordenadas el “menos logaritmo” del p-valor o alternativa
 el estadı́stico B (“log-odds”).
 
 ```{r, volcano}
-volcanoplot(fit.main, coef="AvsB", highlight=10, names=fit.main$ID)
+annotation(eset_rma)
+probeNames <-rownames(fit.main)
+Symbols <- getSYMBOL(probeNames, annotation(eset_rma))
+myNames <- paste(probeNames, Symbols, sep=".")
+head(myNames)
+volcanoplot(fit.main, coef="AvsB", highlight=10, names=myNames)
 ```
 
 # Post-procesado de las listas de genes obtenidas

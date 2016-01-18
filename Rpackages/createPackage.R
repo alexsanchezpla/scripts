@@ -1,16 +1,22 @@
 # http://hilaryparker.com/2014/04/29/writing-an-r-package-from-scratch/
 # http://r-pkgs.had.co.nz/git.html
 
-require("devtools")
+if (!require("devtools")) install.packages("devtools", dep=TRUE)
+if (!require("roxygen2")) install.packages("roxygen2", dep=TRUE)
+
+require(devtools)
 require("roxygen2")
-pkgDir <- "E:/Dropbox (VHIR)/Scripts/Rpackages"
+SO <- version[["os"]]
+if (SO=="linux-gnu")
+{pkgDir <- "~/Dropbox (VHIR)/Scripts/Rpackages"
+}else{
+  pkgDir <- "E:/Dropbox (VHIR)/Scripts/Rpackages"
+}
+
 setwd(pkgDir)
 create("links2File")
 
-
 # agregar funciones a carpeta "R" 
-
-# añadir documentacion en script funcion.R 
 
 #' A Cat Function
 #'
@@ -24,6 +30,10 @@ create("links2File")
 # procesar documento 
 setwd(file.path(pkgDir, "links2File"))
 document()
+
+# Opcional: Si se quiere crear una vinyeta
+# use_vignette("avignette") En linux no funciona. Pot ser pels carÃ cters?
+
 
 check()
 # per instalar 
