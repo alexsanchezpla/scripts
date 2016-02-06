@@ -1,0 +1,16 @@
+FileName	Category	Subcategory	Description
+results/EjemploAnalisisMicroarrays.pdf	INFO	NA	Informe del analisis.pdf
+results/Datos.Normalizados.csv2	DATA	NA	Datos normalizados y filtrados
+results/arrayQuality/index.html	QC	NA	Archivo de navegación entre los archivos de control de calidad
+results/Selected Genes in comparison AvsB.html	ANALYSIS	NA	Lista de genes seleccionables (de mayor a menor exprsión diferencial) en la comparación A vs B
+results/Selected Genes in comparison AvsL.html	ANALYSIS	NA	Lista de genes seleccionables (de mayor a menor exprsión diferencial) en la comparación A vs L
+results/Selected Genes in comparison BvsL.html	ANALYSIS	NA	Lista de genes seleccionables (de mayor a menor exprsión diferencial) en la comparación B vs L
+results/volcanoPlotAvsB.pdf	ANALYSIS	NA	Volcano Plot (efecto biológico vs efecto estadístico) para los genes de la comparación A vs B
+results/volcanoPlotAvsL.pdf	ANALYSIS	NA	Volcano Plot (efecto biológico vs efecto estadístico) para los genes de la comparación A vs L
+results/volcanoPlotBvsL.pdf	ANALYSIS	NA	Volcano Plot (efecto biológico vs efecto estadístico) para los genes de la comparación B vs L
+results/anotations.html	ANNOT	NA	Anotaciones de los genes seleccionados
+results/GOResults.AvsB.html	GO	NA	Resultado del análisis de enriquecimiento en la GO para los genes de la comparación A vs B
+results/GOResults.AvsL.html	GO	NA	Resultado del análisis de enriquecimiento en la GO para los genes de la comparación A vs L
+results/GOResults.BvsL.html	GO	NA	Resultado del análisis de enriquecimiento en la GO para los genes de la comparación B vs L
+results/KEGGResults.AvsB.html	KEGG	NA	Resultado del análisis de enriquecimiento en KEGG para los genes de la comparación A vs B
+results/KEGGResults.BvsL.html	KEGG	NA	Resultado del análisis de enriquecimiento en KEGG para los genes de la comparación B vs L
