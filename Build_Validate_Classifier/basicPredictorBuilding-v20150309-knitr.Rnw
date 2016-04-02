@@ -1,0 +1,409 @@
+\documentclass{article}
+
+%
+% Paquets basics: posar-los sempre
+%
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+%\usepackage[spanish, catalan]{babel}
+\usepackage[english,spanish]{babel}
+\usepackage{url}
+%\usepackage[pdftex]{graphicx}
+\usepackage{underscore}
+
+
+% 
+% Paquets opcionals: posar-los quan sapiguem si cale i que coi fan ...
+%
+\usepackage{times}
+\usepackage{amsmath}
+\usepackage{amssymb,amsfonts,textcomp}
+\usepackage{array}
+\usepackage{hhline}
+
+
+% \textwidth=6.2in
+% \textheight=8.5in
+% %\parskip=.3cm
+% \oddsidemargin=.1in
+% \evensidemargin=.1in
+% \headheight=-.3in
+
+
+
+\newcommand{\R}{\textbf{R}\,}
+\newcommand{\RFI}{\textbf{R}}
+
+\newcommand{\Rfun}[1]{{\texttt{#1}}}
+\newcommand{\Robj}[1]{{\texttt{#1}}}
+\newcommand{\Rpac}[1]{{\textit{#1}}}   
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\textit{#1}}}
+\newcommand{\Rclass}[1]{{\textit{#1}}}
+\newcommand{\bit}{\begin{itemize}}
+\newcommand{\eit}{\end{itemize}}
+\newcommand{\ben}{\begin{enumerate}}
+\newcommand{\een}{\end{enumerate}}
+
+\newcommand{\classdef}[1]{%
+  {\em #1}
+}
+
+<<include=TRUE>>=
+opts_chunk$set(fig.path='images/grafic', tidy=FALSE, dev='pdf')
+@
+
+
+<<directorios, results='hide'>>=
+workingDir <- getwd()
+dataDir <- file.path(workingDir, "dades")
+resultsDir <- file.path(workingDir, "results")
+codeDir <-file.path(workingDir, "Rcode")
+setwd(workingDir)
+
+options(width=80)
+options(digits=5)
+
+toPNG <- FALSE
+@
+
+\title{Building and validating predictors using \R}
+
+\author{Alex Sánchez\\
+Estad\'istica i Bioinform\`atica\\
+Department d'Estadística. Universitat de Barcelona}
+
+\bibliographystyle{plain}
+
+% \includeonly{file1, file2, ...} % Por si se quiere romper el documento en subdocumentos elaborables separadamente
+
+\begin{document}
+
+<<include=FALSE>>=
+library(knitr)
+opts_chunk$set(
+concordance=TRUE
+)
+@
+
+
+\section{Introduction}
+
+A common task in bioinformatics is tu build and validate a predictor
+to distinguish between two or more biological classes based on a
+series of biological features such as genes, microRNA, metabolites (or,
+more recently, a combination of some of these).
+
+Our goal here is to illustrate the \emph{standard process} such as
+described by Sanchez et alt. (\cite{Sanchez2013}) or by Serra Cayuela (\cite{SerraCayuela2015}) and summarized
+in the follwing two figures.
+
+Figure \ref{workflow} illustrates the basics blocks on which the biomarker discovery process can be arbitrarily divided. Figure \ref{validation} illustrates how to use cross-validation to build and validate a biomarker in such a way that unbiased estimates of generalization error can be obtained.
+
+\begin{figure}
+\includegraphics{images/biomarkerDiscoveryWorkflow}
+\label{workflow}
+\end{figure}
+
+
+\begin{figure}
+\includegraphics{images/biomarkerValidationScheme}
+\label{validation}
+\end{figure}
+
+\subsection{The CMA package}
+
+There are many packages in \R to apply each of the many available
+classification methods.  Some of them such as \texttt{caret}
+(\ref{caretPackage}), \texttt{CMA} (\ref{cmaPackage}) or
+\texttt{MLtools} (\ref{mltoolsPackage}) also support the process of
+building and validating a classifier based on testing a set of
+different approaches on a set of samples using an appropriate
+cross-validation approach. 
+
+Here we rely on the Bioconductor \texttt{CMA} (``Classification for MicroArrays'') package which has been
+specifically designed with microarray data in mind, but can also be used with any high throughput data.
+
+<<loadPackages, results='hide', eval=FALSE>>=
+# Compte: cal carregar abans el paquet e1071 perque si no es fa així pot donar error al mètode "tune" (els dos en tenen un que es diu així)
+
+if (!require(e1071)){
+  install.packages("e1071", dep=TRUE)
+}
+require(e1071)
+
+if (!require(glmnet)){
+  install.packages("glmnet", dep=TRUE)
+}
+require(glmnet)
+
+if (!require(randomForest)){
+  install.packages("randomForest", dep=TRUE)
+}
+require(randomForest)
+
+
+if (!(require(CMA))){
+  source("http://Bioconductor.org/biocLite.R")
+  biocLite("CMA")
+}
+require(CMA)
+@ 
+
+
+According to its manual the aim of the package is \emph{to provide a
+user-friendly environment for the evaluation of classification methods
+using gene expression data}. A strong focus is on combined variable
+selection, hyperparameter tuning, evaluation, visualization and
+comparison of (up to now) 21 classification methods from three main
+fields: Discriminant Analysis, Neural Networks and Machine Learning.
+
+Using this package a (not-so-)simple workflow for building and validating a classifier can be built.
+The main steps for this workflow are: 
+\begin{enumerate}
+\item Start with a high-throughput dataset (e.g. en expression matrix) and a vector of labels assigning each column of the dataset to a group.
+\item 
+Generate a given number of evaluation datasets using \texttt{GenerateLearningsets}.
+\item 
+(Optionally): Perform variable selection using \texttt{GeneSelection}.
+\item 
+(Optionally): Peform hyperparameter tuning using \texttt{tune}.
+\item 
+Perform classification using 1.-3.
+\item 
+Repeat steps 3--5 based on the learning sets generated in step 2 for an appropriate (wisely chosen) subset of all available methods\footnote{compBoostCMA, dldaCMA, ElasticNetCMA, fdaCMA, flexdaCMA, gbmCMA, knnCMA, ldaCMA, LassoCMA, nnetCMA, pknnCMA, plrCMA, pls_ldaCMA, pls_lrCMA, pls_rfCMA, pnnCMA, qdaCMA, rfCMA, scdaCMA, shrinkldaCMA, svmCMA}.
+\item Evaluate the results from 6 using \texttt{evaluation} and/or compare the different results using the \texttt{compare} function.
+\end{enumerate}
+
+\textbf{In practice} in order to implement the workflow a series of decisions must be taken. This means that one has to decide:
+\begin{itemize}
+\item Which methods to use for building learning sets.
+\item Which methods to use for selecting variables with best discriminating power.
+\item How many variables to use when building those classifiers that cannot decide this by themselves.
+\item Which classifiers to build so that the set of classifiers tested is simultaneosuly comprehensive (represents well different philosopies) and non-redundant (excludes equivalent or very similar methods).
+\end{itemize}
+
+This can be done using a nested loop that applies each gene selection
+method for each sample size each learning set and each classifier.
+
+\subsection{The data for the analysis}
+
+Although the goal of this document is to be as general as possible it
+is good to recall that not all datasets are suitable for
+classification analysis, due mainly to the fact that problems in the
+data can badly affect the performance of predictors obtained.
+
+That is if the data to be used shows batch effects, too many variables
+or outliers, this has to be dealt with before attempting to build
+and compare the predictors.
+
+Some typical preprocessing that may have to be dealt with are:
+\begin{enumerate}
+\item remove outliers, 
+\item keep only groups of samples where there were individuals of both classes analyzed and
+\item remove batch effects attributable to technical questions or to experimental design
+\item filter the data to retain only genes with a "minimum" variability (that is remove "flat" features).
+\end{enumerate}
+
+Although a Bioconductor package CMA uses no Bioconductor structures
+that is, it expects the data to be in a numerical matrix and the labels
+to be in a character (or factor) vector.
+
+Indeed for coherence with many standard \R packages CMA assumes that variables are in columns and samples in rows, that is, it works with what would be the transposed of standard expression matrices.
+
+In order to keep this document as much general as possible the data used to illustrate the following sections are one of those contained in the CMA package, the \texttt{khan} dataset. It consists of expression values obtained from small blue round cell tumour which
+comprises 65 samples from four tumour classes.
+
+<<getData>>=
+require(CMA)
+data(khan)
+nabX <- as.matrix(khan[,-1])
+dim(nabX)
+nabY <- labs<-as.factor(khan[,1])
+table(nabY)
+@ 
+
+\section{Building and validating the predictors}
+
+\subsection{Creating the learning datasets}
+
+Ideally in classification problems one should have a completely independent test set where the classifier could be checked once it has been built on the train data. 
+
+Given that it is not usually possible an alternative approach is to perform \emph{cross-validation} which consists of creating a certain number of splits of the data (that is different divisions of the original dataset into a train and test subset) which can later be used to train/test the predictor and whose results can be aggregated.
+
+There are different schemes for splitting the samples into test and train subsets. Here we use  the "five-fold" and "Monte Carlo Cross-Validation" approaches, described in \cite{CMAvignette}.
+
+
+<<workflowParameters>>=
+#### NOTA: AL FER EL CÀLCUL DEFINITIU CONVE AUGMENTAR EL NOMBRE D'ITERACIONS. (per exemple a 1000)
+numIter <- 3
+numFold <- 5
+learnSetNames <- c("fiveFold", "MCCV")
+set.seed(1234567)
+@ 
+
+<<prepareLearningSets, echo=F, results='hide'>>=
+five <- GenerateLearningsets(y=nabY, method = "CV", fold = numFold, niter=numIter, strat = TRUE)
+# class(five)
+# getSlots(class(five))
+# show(five); show(five@learnmatrix)
+mccv <- GenerateLearningsets(y=labs, method = "MCCV", niter=numFold*numIter, ntrain=floor(2*length(labs)/3), strat=TRUE)
+learningSets<- list (fiveFold=five, MCCV=mccv)
+learningSetsFileName <- paste("learningSets",numIter,"iter.Rda", sep="")
+save(learningSets, file=file.path(resultsDir,learningSetsFileName ))
+@
+
+
+\subsection{Selecting genes}
+
+The first important step in the process of building a classifier is \emph{variable selection}. It is very important, however, not to confound variable selection with classification. Gene selection -or variable selection- is ``only'' intended to select appropriate variables, but tells nothing about classifiers. Classification relies on variables that distinguish well samples but it looks for a more complex information, that is the ability to classify new individuals into either groups.
+
+Following the recommendations in \cite{Boulesteix:2010} it is a good idea to use several, different, variable selection methods that rely on different approaches, Here we try three  gene selection methods: \emph{T-test}, \emph{Random forest} and the \emph{Lasso} corresponding to three different approaches (...).
+
+The code below shows how to perform gene selection on the different learning sets and how to annotate compare them.
+
+This provides relevant information, but it is important to recall that it does not provide us with what is the goal of this document: a good classifier.
+
+<<selMethods>>=
+# selMethodNames <- c("t.test", "rfe", "lasso") # VALID PER DOS GRUPS
+# selScheme <- "pairwise"                       # VALID PER DOS GRUPS
+selMethodNames <- c("f.test", "rf")           # ADIENT PER MES DE 2 GRUPS
+schemeName <- "multiclass"                     # ADIENT PER MES DE 2 GRUPS
+numGenes2Sel <- c(2,5,10, 25)
+@
+
+<<doGeneSel, eval=TRUE>>=
+# Això no cal fer-ho perque es fa al loop principal
+geneSels<- list()
+for (i in 1:length(learningSets)){
+  for (j in 1:length(selMethodNames)){
+    selected  <- GeneSelection(nabX, nabY, learningsets = learningSets[[i]], 
+                               method = selMethodNames[j], scheme=schemeName)
+    itemName<- paste(learnSetNames[i], selMethodNames[j], sep=".")
+    geneSels[[itemName]]<-selected
+  }
+}
+selectedGenesFileName <- paste("selectedGenes",numIter,"iter.Rda", sep="")
+save(geneSels, file=file.path(resultsDir,selectedGenesFileName))
+@ 
+
+<<exploreGeneSel, eval=TRUE>>=
+# Si no s'ha fet lo de dalt no tes sentit
+if (!(exists("learningSets"))) load(file=file.path(resultsDir, learningSetsFileName))
+if (!(exists("geneSels"))) load(file=file.path(resultsDir, selectedGenesFileName))
+topLists <- lapply(geneSels, toplist, 25)
+res25<- as.data.frame(topLists)
+colnames(res25)
+res.ftest <- c(res25[,1], res25[,5])
+res.rf <-  c(res25[,3], res25[,7])
+res.all <- c(res.ftest, res.rf)
+table(res.ftest)
+table(res.rf)
+table(res.all)
+x<-as.data.frame(sort(table(res.all), decreasing=TRUE))
+
+# require(annotate)
+# require("hgu133plus2.db")
+# gname <- function(x) unlist(mget(x, hgu133plus2GENENAME))
+# gsymb <- function(x) getSYMBOL(x, "hgu133plus2.db")
+# genIdxs <- rownames(x)
+# geneNames <- colnames(nabX)
+# myGeneNames <- geneNames[as.integer(genIdxs)]
+# myGeneSymbols <- gsymb(myGeneNames)
+# myGeneDesc <- gname(myGeneNames)
+# selectedTable <- cbind(Gene=myGeneSymbols, as.integer(x[,1]), Desc=myGeneDesc)
+colnames(x) <- timesSelected
+selectedTable <- x
+biomarkersFileName <- paste("candidate.biomarkers", numIter, "text", sep=".")
+write.table(selectedTable, file=file.path(resultsDir, biomarkersFileName), sep="\t", row.names=FALSE)
+@ 
+
+File \Sexpr{biomarkersFileName} contains a table with genes selected by the different methods and the number of times they have been selected.
+
+\subsection{Hyperparameter tuning}
+
+Some methods require -it is recommended- that a tuning of their parameters is performed to yield their best performance.
+To avoid overfitting this tuning is performed inside the cross-validation loop created to test each classifier on each set of (selected) variables and each set of randomly selected trainig samples.
+
+\subsection{Classification}
+
+Once all the elements are ready that is: cross-validation scheme, gene selection methods and hyperparameter tunings needed known a global cross-validation loop implementing the process can be builit. The CMA package has some functions that strongly facilitate this process as shown in the code below.
+
+
+<<classif, echo=T, results='hide'>>=
+
+load(file=file.path(resultsDir, learningSetsFileName))
+# load(file=file.path(resultsDir, selectedGenesFileName)) NO CAL: Es recalcula
+
+classifierNames <- c("dldaCMA", "knnCMA", "rfCMA", "scdaCMA", "svmCMA")
+isTunable <- c(FALSE, TRUE, FALSE, TRUE, TRUE)
+
+#classifierNames <- c("dldaCMA", "knnCMA")
+#isTunable <- c(FALSE, TRUE)
+
+classifs <- list()
+
+st <- system.time(
+for (i in 1:length(learningSets)){
+  for (j in 1:length(selMethodNames)){
+      selected  <- GeneSelection(nabX, nabY, learningsets = learningSets[[i]], 
+                                 method = selMethodNames[j])
+      for (numGenes in numGenes2Sel){ # Opcional : Un altre nivell d'iteració
+        for (k in 1:length(classifierNames)){
+          myClassifier <- eval(parse(text=classifierNames[k]))
+          if(isTunable[k]){     
+               tuneVals <- tune (X=nabX, y=nabY, learningsets= learningSets[[i]],  
+                                 genesel=selected, nbgene=numGenes,
+                                classifier =myClassifier,  grids=list())
+               classif <- classification(X = nabX, y=nabY, learningsets = learningSets[[i]], 
+                                         genesel=selected, nbgene=numGenes, 
+                                         classifier=myClassifier, 
+                                         tuneres=tuneVals)
+             }else{
+               classif <- classification(X = nabX, y=nabY, learningsets = learningSets[[i]], 
+                                         genesel=selected, nbgene=numGenes, 
+                                         classifier=myClassifier)
+             }
+          itemName<- paste(learnSetNames[i], selMethodNames[j], numGenes, classifierNames[k], sep=".")
+          classifs[[itemName]]<- classif
+        }
+      }
+    }
+}
+)
+
+cat("Time consumed: ", st, "\n")
+
+classifsFileName <- paste("classifs",numIter,"iter.Rda", sep="")
+save(classifs, file=file.path(resultsDir,classifsFileName))
+
+@
+
+\subsection{Classifiers comparison}
+
+The loop performed in the previous section builds and tests many different classifiers. In order to evaluate and compare them they can be processed using the CMA function \texttt{compare} which analyzes the performance of each classifier based on standard measures such as "misclassification probability", "sensitivity", "specificity" or the ``auc'' the area under the curve.
+
+Classification results can be plotted or stored in a file for further exploration
+
+<<classify1Eval, eval=TRUE>>=
+
+compMeasures <-  c("misclassification", "sensitivity", "specificity")
+                  # , "average probability", "auc")
+s1 <- c(rep("fiveF", 60), rep("mccv", 60))
+s2<- c(rep("tttest",20), rep ("rfe",20) ,rep("lasso",20),
+       rep("tttest",20), rep("rfe",20), rep("lasso",20))
+s3 <- rep(c(rep(2,5), rep(5,5),rep(10,5), rep(25,5)),6)
+s4 <- rep(classifierNames, 24)
+s <- paste(s1,s2,s3,s4, sep=".")
+
+compClassifs <- compare(classifs,  measure = compMeasures)
+
+resultsClassif <- data.frame(CrossVal=s1, VarSel=s2, numGenes=s3, Classif=s4,compClassifs)
+
+write.csv2(resultsClassif, file=file.path(resultsDir, paste("resultsClassif", numIter, "csv", sep=".")))
+@ 
+
+\bibliography{reviewMicroarrays} 
+
+\end{document}

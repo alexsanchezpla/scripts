@@ -8,9 +8,8 @@
 %\usepackage[spanish, catalan]{babel}
 \usepackage[english,spanish]{babel}
 \usepackage{url}
-\usepackage[pdftex]{graphicx}
+%\usepackage[pdftex]{graphicx}
 \usepackage{underscore}
-% I l'Sweave, es clar
 
 
 % 
@@ -325,7 +324,7 @@ To avoid overfitting this tuning is performed inside the cross-validation loop c
 Once all the elements are ready that is: cross-validation scheme, gene selection methods and hyperparameter tunings needed known a global cross-validation loop implementing the process can be builit. The CMA package has some functions that strongly facilitate this process as shown in the code below.
 
 
-<<classif, echo=T, print=F, results=H>>=
+<<classif, echo=T, print=F, results='hide'>>=
 
 load(file=file.path(resultsDir, learningSetsFileName))
 # load(file=file.path(resultsDir, selectedGenesFileName)) NO CAL: Es recalcula

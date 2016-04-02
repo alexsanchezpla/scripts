@@ -1,7 +1,8 @@
-extractInfo <- function (x, compName, pattern, outDir, adjOrraw="adj", pCutOff=0.01, fcCutoff=1){
+extractInfo <- function (x, compName, pattern, outDir, adjOrraw="adj", 
+                         pCutOff=0.01, fcCutoff=1, UpDown="both"){
   geneList <- genesFromTopTable (x, entrezOnly = TRUE, uniqueIds=TRUE, #uniqueEntrezs, 
                                  adjOrrawP = adjOrraw, Pcutoff = pCutOff, FCcutoff = fcCutoff, 
-                                 id2Select = "EntrezsA" , cols2Select =2)
+                                 updown=UpDown, id2Select = "EntrezsA" , cols2Select =2)
   symbolsList <- as.character(genesFromTopTable (x, entrezOnly = TRUE, uniqueIds=TRUE, #uniqueEntrezs, 
                                                  adjOrrawP = adjOrraw, Pcutoff = pCutOff, FCcutoff = fcCutoff, 
                                                  id2Select = "SymbolsA" , cols2Select =1))

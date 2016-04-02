@@ -1,0 +1,223 @@
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{url}
+\usepackage{underscore}
+
+\title{Functional analysis of gene lists}
+\author{Ferran Brians\'o and Alex S\'anchez-Pla. \\ Statistics department. UB \\ \& Statistics and Bioinformatics Unit (UEB). VHIR.}
+
+\bibliographystyle{plain}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+<<include=FALSE>>=
+opts_chunk$set(fig.path = 'images/grafic')
+options(warn=-1)
+@
+
+
+<<setDirs, echo=FALSE, message=FALSE>>=
+mainDir <-getwd()
+workingDir <- mainDir
+dataDir <-file.path(mainDir, "dades")
+listsDir <- file.path(workingDir, "results")
+codeDir <-  file.path(workingDir, "Rcode")
+resultsDir <- file.path(workingDir, "results")
+@
+
+
+<<loadpackages, echo=FALSE, message=FALSE>>=
+installifnot <- function (packageName){
+ if (!(require(packageName, character.only=TRUE))) {
+    install.packages(packageName)
+  }else{
+    detach(paste ("package", packageName, sep=":"), character.only=TRUE)
+  } 
+}
+bioCifnot <- function (packageName){
+ if (!(require(packageName, character.only=TRUE))) {
+    source("http://bioconductor.org/biocLite.R")
+    biocLite(packageName)
+ }else{
+  detach(paste ("package", packageName, sep=":"), character.only=TRUE)
+  }  
+}
+installifnot("knitr")
+installifnot("gdata")
+@ 
+
+\section{Introduction}
+
+This document provides information on how to extract subsets of genes from previously available gene lists by setting different filtering conditions such as the fold change, the p-value or the availability of \texttt{Entrez} identifier.
+
+\subsection{From gene lists to Functional Analysis}
+
+The main, but not the only, goal of creating a gene list is to use it as input for some type of functional analysis such as Enrichment Analyis (ORA) or Gene set Enrichment Analysis.
+
+Functional analysis can be made, on a first approach on
+\begin{itemize}
+\item A list of genes selected by being differentially expressed in a given experimental setting.
+\item The whole list of genes -or even the whole expression matrix- that has been used in the analysis.
+\end{itemize}
+
+Most tools require that gene list consist of gene identifiers in some standard notation such as \texttt{Entrez}, \texttt{ENSEMBL} or other related to these.
+
+These gene lists can be easily extracted from output tables provided by microarrays or RNA-seq data analysis tools.
+
+The analysis below is applied on a set of three gene lists obtained from a renal cancer study, but it can be easily extended to more lists or other studies.
+
+<<getGeneList, message=FALSE>>=
+x1<- AvsB <- read.table(file.path(resultsDir, "ExpressAndTop_AvsB.csv2"), head=T, sep=";", dec=",", row.names=1)
+x2<- AvsL <- read.table(file.path(resultsDir, "ExpressAndTop_AvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
+x3<- BvsL <- read.table(file.path(resultsDir, "ExpressAndTop_BvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
+
+dim(x1);
+cat("\nHeader of top Table for comparison AvsB\n")
+cat("--------------------------------------------\n")
+head(x1[1:10, 1:8])
+
+cat("\nHeader of top Table for comparison AvsL\n")
+cat("--------------------------------------------\n")
+dim(x2); head(x2[1:10, 1:8])
+
+cat("\nHeader of top Table for comparison BvsL\n")
+cat("--------------------------------------------\n")
+
+dim(x3); head(x3[1:10, 1:8])
+
+@
+
+\section{Input data preprocessing}
+
+Sometimes lists may need some preprocessing (e.g. in this example the gene list has multiple transcripts per gene identifier that have to be unitized previous to the analysis).
+
+
+<<getFunctions>>=
+source("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/usefulFunctions/genesFromTopTable.R")
+source("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/usefulFunctions/extractInfoFromTopTable.R")
+@
+
+
+We can use the available functions to extract only the gene lists
+<<geneListsOnly>>=
+geneList1  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, 
+                                 id2Select = "EntrezsA" , cols2Select =3)
+length(geneList1)
+geneList1Up  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, updown="up",
+                                 id2Select = "EntrezsA" , cols2Select =3)
+length(geneList1Up)
+geneList1Down  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, updown="down",
+                                 id2Select = "EntrezsA" , cols2Select =3)
+length(geneList1Down)
+
+geneList2 <- genesFromTopTable (x2, entrezOnly = TRUE, uniqueIds=TRUE, 
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, 
+                                 id2Select = "EntrezsA" , cols2Select =3)
+
+geneList3 <- genesFromTopTable (x3, entrezOnly = TRUE, uniqueIds=TRUE, 
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, 
+                                 id2Select = "EntrezsA" , cols2Select =3)
+
+@
+
+Another possibility is to use function \texttt{extractInfo} do a ``batch extraction''
+
+<<geneListsAndMore>>=
+List1 <- extractInfo(x1, "AvsB", "A|B", resultsDir, adjOrraw="adj", 
+                     pCutOff=0.1, fcCutoff=.75); 
+universeList1 <-List1[[2]]; geneList1<- List1[[1]]; 
+
+
+cat("\nNumber of genes selectable (AvsB) with adjusted p-value < 0.1 and logFC > 0.75", length(geneList1))
+
+List2 <- extractInfo(x2, "AvsL", "A|L", resultsDir, adjOrraw="adj", pCutOff=0.1, fcCutoff=.75); 
+universeList2 <-List2[[2]]; geneList2<- List2[[1]]; 
+cat("\nNumber of genes selectable (AvsL) with adjusted p-value < 0.1 and logFC > 0.75", length(geneList2))
+
+List3 <- extractInfo(x3, "BvsL", "B|L", resultsDir, adjOrraw="adj", pCutOff=0.1, fcCutoff=.75); 
+universeList3 <-List3[[2]]; geneList3<- List3[[1]]; 
+cat("\nNumber of genes selectable (BvsL) with adjusted p-value < 0.1 and logFC > 0.75", length(geneList3))
+
+
+# test
+# pattern  <- "WL|PS"; cols2select<- grep(pattern, colnames(x1)); colnames(x1)[cols2select]
+# pattern  <- "WL\\.M|PS\\.M"; cols2select<- grep(pattern, colnames(x1M)); colnames(x1M)[cols2select]
+# pattern  <- "WL\\.F|PS\\.F"; cols2select<- grep(pattern, colnames(x1F)); colnames(x1F)[cols2select]
+@
+
+The following diagram shows which genes there are in common (or not) between the three lists.
+
+<<vennSigGenes2, message=FALSE>>=
+require(VennDiagram)
+vd2<- venn.diagram(list(AvsB=geneList1, AvsL=geneList2,  BvsL=geneList3), filename=NULL)
+grid.draw(vd2)
+dev.off()
+@ 
+
+\section{Case study}
+
+Imagine a user wants to do the following analysis:
+
+\begin{enumerate}
+\item Select three lists from my study (\textbf{In this example we choose AvsB, AvsL, BvsL})
+We can do a preliminar optional filtering to keep only genes with Entrez Identifier and remove duplicates keeping only the most variable one.
+<<prefilter>>=
+AvsB0  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 1)
+AvsL0  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 1)
+BvsL0  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 1)
+@
+
+\item Filter lists with adjusted-p-value less than 0.05
+
+<<filterByAdjPval>>=
+AvsB1  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05)
+AvsL1  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05)
+BvsL1  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05)
+
+cat("AvsB: ", length(AvsB0), "-->", length(AvsB1), "\n")
+cat("AvsL: ", length(AvsL0), "-->", length(AvsL1), "\n")
+cat("BvsL: ", length(BvsL0), "-->", length(BvsL1), "\n")
+@
+
+\item Create separate lists with up and down regulated genes
+
+<<filterByUpDown>>=
+AvsB1Up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="up")
+AvsL1Up  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="up")
+BvsL1Up  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="up")
+cat("AvsB: ", length(AvsB1), "-->", length(AvsB1Up), "\n")
+cat("AvsL: ", length(AvsL1), "-->", length(AvsL1Up), "\n")
+cat("BvsL: ", length(BvsL1), "-->", length(BvsL1Up), "\n")
+
+AvsB1Down  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="down")
+AvsL1Down  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="down")
+BvsL1Down  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="down")
+cat("AvsB: ", length(AvsB1), "-->", length(AvsB1Down), "\n")
+cat("AvsL: ", length(AvsL1), "-->", length(AvsL1Down), "\n")
+cat("BvsL: ", length(BvsL1), "-->", length(BvsL1Down), "\n")
+@
+\item Create a gene list with genes shared by AvsL and BvsL
+<<commonGenes>>=
+commonAvsLandBvsL <- intersect(AvsL0, BvsL0)
+length(commonAvsLandBvsL)
+@
+
+\end{enumerate}
+
+\bibliography{MDAreferences}
+
+\end{document}
+
+%%%%%%%%%%%%%%%%%%% Old code
+
+
+
+

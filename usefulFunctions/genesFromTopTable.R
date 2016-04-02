@@ -6,6 +6,7 @@
 #' @param adjOrrawP
 #' @param Pcutoff
 #' @param FCcutoff
+#' @param updown
 #' @param id2select
 #' @param cols2select
 #' @keywords
@@ -21,6 +22,7 @@ genesFromTopTable <- function (aTopTable,
                                adjOrrawP = "adj",
                                Pcutoff = 0.05,
                                FCcutoff = 1,
+                               updown = "both", # c("both","up","down")
                                id2Select = "ENTREZ",  # c("ENTREZ","SYMBOL", "other") 
                                                       # Alias ("Entrez", "EntrezsA", "Symbols", "SymbolsA") are accepted
                                cols2Select = 2){
@@ -30,13 +32,10 @@ genesFromTopTable <- function (aTopTable,
   }else{
     topTab=aTopTable
   }
-  dim(topTab)
-  colnames(topTab)
   if (entrezOnly) {
     selectedEntrez <- !is.na(topTab[,"EntrezsA"])
     topTab <- topTab[selectedEntrez,]
   }
-  dim(topTab)
   if (Pcutoff < 1){
     if (adjOrrawP=="adj"){
       selectedP <- topTab[,"adj.P.Val"] < Pcutoff
@@ -45,13 +44,21 @@ genesFromTopTable <- function (aTopTable,
     }
     topTab<- topTab[selectedP, ]
   }
-  dim(topTab)
   if (FCcutoff > 0){
     selectedFC <-(abs(topTab[,"logFC"]) > FCcutoff)
     topTab<- topTab[selectedFC, ]
-    dim(topTab)
   }
-  
+  if (updown!="both"){
+    if (updown=="up"){
+      selectedup <-topTab[,"logFC"] > 0     
+      topTab<- topTab[selectedup, ]
+    }else{
+      if (updown=="down"){
+        selecteddown <-topTab[,"logFC"] < 0
+        topTab<- topTab[selecteddown, ]
+      }
+    }
+  }
   if (toupper(substr(id2Select,1,6))=="SYMBOL"){
     geneList <- topTab[,"SymbolsA"]
   }else{
