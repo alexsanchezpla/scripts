@@ -107,7 +107,7 @@ We can use the available functions to extract only the gene lists
 <<geneListsOnly>>=
 geneList1  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
                                  adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, 
-                                 id2Select = "EntrezsA" , cols2Select =3)
+                                 id2Select = "SymbolsA" , cols2Select =3)
 length(geneList1)
 geneList1Up  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
                                  adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, updown="up",

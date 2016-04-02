@@ -33,7 +33,7 @@ genesFromTopTable <- function (aTopTable,
     topTab=aTopTable
   }
   if (entrezOnly) {
-    selectedEntrez <- !is.na(topTab[,"EntrezsA"])
+    selectedEntrez <- topTab$EntrezsA !="---" # !is.na(topTab[,"EntrezsA"])
     topTab <- topTab[selectedEntrez,]
   }
   if (Pcutoff < 1){
@@ -72,7 +72,7 @@ genesFromTopTable <- function (aTopTable,
       }}}
   # length(geneList)
   if(uniqueIds) geneList <- unique(geneList)
-  return(geneList)
+  return(as.character(geneList))
 }
 
 
