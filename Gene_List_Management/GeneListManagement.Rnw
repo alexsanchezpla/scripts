@@ -22,11 +22,8 @@ options(warn=-1)
 
 
 <<setDirs, echo=FALSE, message=FALSE>>=
-mainDir <-getwd()
-workingDir <- mainDir
-dataDir <-file.path(mainDir, "dades")
-listsDir <- file.path(workingDir, "results")
-codeDir <-  file.path(workingDir, "Rcode")
+workingDir <- getwd()
+dataDir <-file.path(workingDir, "dades")
 resultsDir <- file.path(workingDir, "results")
 @
 
@@ -57,7 +54,7 @@ This document provides information on how to extract subsets of genes from previ
 
 \subsection{From gene lists to Functional Analysis}
 
-The main, but not the only, goal of creating a gene list is to use it as input for some type of functional analysis such as Enrichment Analyis (ORA) or Gene set Enrichment Analysis.
+The main, but not the only, goal of creating a gene list is to use it as input for some type of functional analysis such as Enrichment Analyis (ORA) or Gene set Enrichment Analysis (GSEA).
 
 Functional analysis can be made, on a first approach on
 \begin{itemize}
@@ -69,12 +66,23 @@ Most tools require that gene list consist of gene identifiers in some standard n
 
 These gene lists can be easily extracted from output tables provided by microarrays or RNA-seq data analysis tools.
 
-The analysis below is applied on a set of three gene lists obtained from a renal cancer study, but it can be easily extended to more lists or other studies.
+The analysis below is applied on a set of three gene lists obtained from a breast cancer study, but it can be easily extended to more lists or other studies.
+
+\subsection{Data Input Format for gene list selection}
+
+In principle a filtering tool might read the file header and, once this is done, create an interactive dialog to query for the values that would be applied for subsetting the lists rows or columns.
+
+In practice, and in our work environment most lists will be extracted from the standard output of our microarray analysis pipeline\footnote{In this point we assume that the user is familiarized with standard microarray analysis ``a la Bioconductor''. If this is not so the reader can browse through the slides and examples in \url{http://eib.stat.ub.edu/Omics+Data+Analysis}}. These files are generically described as "Expression_and_TopTables" because they consist of tables having:
+\begin{enumerate}
+\item The Gene Symbols and the Entrez Identifiers in the first two columns
+\item The standard output of the limma software known as "topTable"
+\item [optionally] the Expression values that have been used to compute the Toptable. \footnote{Although some type of analyses require only the gene identifiers other need also the expressions. For this reason these output files contain ``all that is needed'' for further analyses}.
+\end{enumerate}
 
 <<getGeneList, message=FALSE>>=
-x1<- AvsB <- read.table(file.path(resultsDir, "ExpressAndTop_AvsB.csv2"), head=T, sep=";", dec=",", row.names=1)
-x2<- AvsL <- read.table(file.path(resultsDir, "ExpressAndTop_AvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
-x3<- BvsL <- read.table(file.path(resultsDir, "ExpressAndTop_BvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
+x1<- AvsB <- read.table(file.path(dataDir, "ExpressAndTop_AvsB.csv2"), head=T, sep=";", dec=",", row.names=1)
+x2<- AvsL <- read.table(file.path(dataDir, "ExpressAndTop_AvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
+x3<- BvsL <- read.table(file.path(dataDir, "ExpressAndTop_BvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
 
 dim(x1);
 cat("\nHeader of top Table for comparison AvsB\n")
@@ -96,6 +104,7 @@ dim(x3); head(x3[1:10, 1:8])
 
 Sometimes lists may need some preprocessing (e.g. in this example the gene list has multiple transcripts per gene identifier that have to be unitized previous to the analysis).
 
+We have prepared two functions that encapsulate some standard functionalities for gene list filtering.
 
 <<getFunctions>>=
 source("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/usefulFunctions/genesFromTopTable.R")
@@ -209,6 +218,21 @@ cat("BvsL: ", length(BvsL1), "-->", length(BvsL1Down), "\n")
 commonAvsLandBvsL <- intersect(AvsL0, BvsL0)
 length(commonAvsLandBvsL)
 @
+
+\item The lists can be used from memory or written into files:
+
+<<writeLists2Files>>=
+write.table(x=AvsB1Up, file = file.path(resultsDir, "AvsB1Up.txt"), row.names=FALSE, col.names=FALSE, quote=FALSE)
+write.table(x=AvsL1Up, file = file.path(resultsDir, "AvsL1Up.txt"), row.names=FALSE, col.names=FALSE, quote=FALSE)
+write.table(x=BvsL1Up, file = file.path(resultsDir, "BvsL1Up.txt"), row.names=FALSE, col.names=FALSE, quote=FALSE)
+write.table(x=AvsB1Down, file = file.path(resultsDir, "AvsB1Down.txt"), row.names=FALSE, col.names=FALSE, quote=FALSE)
+write.table(x=AvsL1Down, file = file.path(resultsDir, "AvsL1Down.txt"), row.names=FALSE, col.names=FALSE, quote=FALSE)
+write.table(x=BvsL1Down, file = file.path(resultsDir, "BvsL1Down.txt"), row.names=FALSE, col.names=FALSE, quote=FALSE)
+write.table(x=commonAvsLandBvsL, file = file.path(resultsDir, "commonAvsLandBvsL.txt"), row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+@
+
+
 
 \end{enumerate}
 
