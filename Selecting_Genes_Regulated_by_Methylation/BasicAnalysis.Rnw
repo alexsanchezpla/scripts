@@ -1,0 +1,1374 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[T1]{fontenc}
+%\usepackage[utf8]{inputenc}
+%\usepackage[spanish]{babel}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{underscore}
+%\usepackage{graphicx}
+%\usepackage{pstricks}
+
+\setlength{\oddsidemargin}{0pt} \setlength{\evensidemargin}{0pt}
+\setlength{\marginparwidth}{1in} \setlength{\marginparsep}{0pt}
+
+\setlength{\topmargin}{0pt} \setlength{\headheight}{0pt}
+\setlength{\headsep}{0pt} \setlength{\topskip}{0pt}
+
+% \footheight 0pt
+% \footskip 0pt
+% A4 is 29,7301778cm x 21,0224103cm
+%     =  9,7047944in x 6,2765395in
+\setlength{\textheight}{24,6501778cm}
+\setlength{\textwidth}{15,9424103cm}
+
+\setlength{\parindent}{0pt}
+
+\pagestyle{plain}
+
+\title{Scatterplot clustering for the integrative analysis of expression and methylation data\\
+Part I: Gene selection}
+\author{M. Carme Ruiz de Villa, Francesc Carmona \\ Diego Arango del Corro, Alex S\'anchez}
+\date{}
+
+\begin{document}
+%\SweaveOpts{concordance=TRUE}
+
+<<include=FALSE>>=
+library(knitr)
+opts_chunk$set(
+concordance=FALSE, cache=FALSE, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE)
+@
+
+
+\maketitle
+
+\thispagestyle{empty}
+
+\begin{abstract}
+  This document presents two methods for selecting genes regulated by
+  methylation and shows how to combine them to obtain an improved set
+  of selected genes. The methods are implemented as a set of R
+  functions (to be) integrated in a Bioconductor package
+  \texttt{selMethylGenes}. As a proof of concept they are applied to a
+  paired dataset consisting of expression and methylation data from a
+  colorectal (CRC) cancer study.
+\end{abstract}
+
+\vfill
+
+%\begin{center}
+%\includegraphics{figures/signatura_cmyk.pdf}
+%\end{center}
+
+\newpage
+
+\tableofcontents
+
+\section{Introduction}
+\subsection{Motivation: Selecting genes regulated by methylation in a Colon Cancer Study}
+
+This study originates from previous work aiming at the identification of
+biomarkers for chemotherapy sensitivity in colorectal cancer (CRC)
+where the number of available therapies is smaller than in other
+cancer types.
+
+The study analyzed a panel of 30--45 cell lines derived from
+colorectal tumors characterized by increasing sensitivity to several
+chemotherapy drugs such as \begin{itemize}
+                \item Irinotecan,
+                \item Cetuximab,
+                \item Oxaliplatin.
+              \end{itemize}
+
+
+Different high-throughput data were generated:
+     \begin{itemize}
+       \item gene expression from Affymetrix (HGU133p2) microarrays,
+      \item gene expression from Illumnina GA RNA-seq,     
+       \item microRNAs from Affymetrix miRNA array,
+       \item methylation, from Illumina Beadchips and
+       \item Copy Number Variation from Affymetrix Chip.
+     \end{itemize}
+
+     In this work we focus on one of the branches of the work:
+     \textbf{\emph{the search of genes regulated by methylation}}.
+
+Methylation of CpG dinucleotides in the promoter of genes involved in
+the oncogenic process has been shown to be a key process contributing
+to tumor initiation and/or progression. Finding genes regulated by
+methylation can lead to a better understanding of such processes and
+also to be a guide to finding new drug targets.
+
+The identification of genes regulated by methylation can be done using
+different approaches, which may vary depending on the type of functions
+in which these genes are involved.
+
+\subsubsection{Gene-specific methylation on-off threshold}
+
+In cancer--related genes it is relatively common to observe a
+hypermethylation associated with a decrease in the expression of the
+gene. Indeed, methylation is often described as a binary on-off signal,
+meaning that when methylation is ``off'' the gene can express normally and
+its expression will be intermediate or high, whereas when methylation
+is ``on'', the expression of the gene will be \emph{repressed} and its
+values will tend to be low.
+
+As a consequence of this \emph{high-methylation/low-expression} and
+\emph{low-methylation/high-expression}, plots depicting the relation
+between methylation and expression will show L--shape patterns, therefore the
+strategey adopted will be to mine such plots and select those that
+have such a shape.
+
+\subsection{Objectives}
+
+The main objectives of this work are: (1) to select an appropriate
+method for scatterplot clustering that can be used to mine a multiple
+high-throughput dataset formed by expression and methylation data and
+extract the desired patterns, (2) to test the methods selected on a
+colon cancer dataset formed by a panel of cell lines derived from
+colorectal tumors and validate the findings based on their biological
+relevance.
+
+\section{Methods for selecting hypermethylated \&down--regulated genes}
+
+<<directoris, echo=FALSE>>=
+options(digits=4)
+workingDir <- getwd()
+# workingDir <- setwd("C:/Users/Acer/Dropbox (EstBioInfo UB)/2016-01-Selecting_genes_regulated_by_methylation")
+dadesDir <-  file.path(workingDir, "dades")
+codeDir <-  file.path(workingDir, "Rcode")
+graficsDir<-file.path(workingDir, "results")    
+resultsDir <- file.path(workingDir, "results")
+@ 
+
+
+<<loadpackages, echo=FALSE, message=FALSE, echo=FALSE>>=
+if (!(require(Hmisc))) install.packages("Hmisc")
+if (!(require(splines))) install.packages("splines")
+if (!(require(cluster))) install.packages("cluster")
+if (!(require(knitr))) install.packages("knitr")
+if (!(require(VennDiagram))) install.packages("VennDiagram")
+source(file=file.path(codeDir,"splinesFunctions.R"))
+source(file=file.path(codeDir,"cmiFunctions.R"))
+@ 
+
+As indicated above, the approach taken in this work does not intend to
+be exhaustive, meaning by this that we might intend to select all the
+genes possibly regulated by methylation.
+
+Instead we aim at finding those genes showing an L--shape pattern mainly because 
+\begin{itemize}
+\item It seems to be the most common pattern in many cancer--related genes.
+\item The research on CRC that is being performed in parallel requires such genes to be found. 
+\end{itemize}
+
+The two methods that have been applied are briefly described  below.
+
+\subsection{Gene selection based on conditional mutual information}
+
+In this section we adapt the method proposed by Liu (\cite{Liu:2012}).
+
+We assume that the genes we want to select show an L--shape
+pattern. Besides, we assume that methylation is \emph{truly binary}, which has two
+implications:
+\begin{enumerate}
+\item The reflection point of the L-shape is an appropriate choice to
+  binarize methylation data\footnote{Where values on the left of
+    this point can be considered to be methylated and values on the
+    right can be considered to be unmethylated}, and
+\item Conditioning on the binarized on-off methylation status, the
+  continuous valued methylation data and expression data should be
+  independent\footnote{where both branches of the ``L'' pattern show
+    a wide range of values of methylation (left) or
+    expression (right) for a small range of values of expression
+    (left) or methylation (right); which suggest that, once we are on
+    one or other side of the binarization point, methylation and
+    expression are independent}.
+\end{enumerate}
+
+Reasonably, the scenario described above depends on how the continuous
+methylation data are binarized, so Liu (\cite{Liu:2012}) suggested to use
+different thresholds for binarizing the data and then select the
+threshold that best separated the two regions. The ``best'' criteria
+is based on computing mutual information.
+
+\subsubsection{Mutual information and Conditional Mutual Information}
+
+Recall that \emph{Mutual Information} between two random variables $X$
+and $Y$ measures the information that these variables share: it measures how
+much knowing one of these variables reduces uncertainty about the
+other.  
+
+For discrete variables it is defined as:
+\[
+ I(X;Y) \triangleq D_{KL}{(p(x,y)||p(x)p(y))} = \sum_{y \in Y} \sum_{x \in X} 
+                 p(x,y) \log{ \left(\frac{p(x,y)}{p(x)\,p(y)}
+                              \right) }, \,\!
+\]
+where $p(x,y)$ is the joint probability distribution function of $X$
+and $Y$, and $p(x)$ and $p(y)$ are the marginal probability
+distribution functions of $X$ and $Y$ respectively.
+
+Knowledge of a third variable $Z$ can increase or decrease the mutal
+information between $X$ and $Y$ and \emph{Conditional Mutual
+  Information} measures the expected value of $I(X;Y)$ once $Z$ is
+known.
+\[
+I(X;Y|Z) = \mathbb E_Z \big(I(X;Y)|Z\big)
+    = \sum_{z\in Z} p_Z(z) \sum_{y\in Y} \sum_{x\in X}
+      p_{X,Y|Z}(x,y|z) \log \frac{p_{X,Y|Z}(x,y|z)}{p_{X|Z}(x|z)p_{Y|Z}(y|z)},
+\]
+
+To solve the problem of finding L-shaped genes we notice that the
+ideal point for binaryzing methylation values is the point that makes
+expression and methylation independent at both sides of it, that is
+the point that minimizes Mutual Information between expression and
+methylation, conditional on the binarizing point.
+
+
+\subsubsection{Finding the optimal threshold}
+
+If we consider the continuous valued methylation and expression data as two random variables
+$X$ and $Y$, and denote a nominal threshold as $t$, the conditional MI can be written as a
+weighted sum of MIs on the two sides of the threshold.
+\[
+\mathit{cMI}(t)=I(X,Y|X>t)P(X>t) + I(X,Y|X\le t)P(X\le t)
+\]
+
+When $t$ is $0$ or $1$, $\mathit{cMI}$ equals to the mutual information derived 
+from all data points.
+
+For an L-shape gene, as $t$ moves from 0 to 1, $\mathit{cMI}(t)$ first decreases and then increases, and its value approaches zero when $t$ coincides with the reflection point. 
+Therefore,
+
+The value $t$ such that ratio
+$r=\frac{\min\{\mathit{cMI}(t)\}}{\mathit{cMI}(0)}$ for an L-shape
+gene is small, and $t^{\ast} = \mathrm{argmin}\{ \mathit{cMI}(t) \}$
+is the optimal threshold for dichotomizing the methylation data of
+this gene.
+
+\begin{center}
+\includegraphics[height=5cm]{./figures/cMI-methylation.png}
+\end{center}
+
+
+\subsubsection{Joint distribution estimator}
+
+To estimate the MI terms we use a kernel-based estimator, which
+constructs a joint probability distribution by applying a Gaussian
+kernel to each data point, and estimates the MI based on the joint
+distribution. The estimator is as follows:
+\[
+I(X,Y) = \frac 1M \sum_{i=1}^M \log\frac{M\sum_{j=1}^M e^{-\frac{1}{2h^2}((x_i-x_j)^2+(y_i-y_j)^2)}}{%
+                                      \sum_{j=1}^M e^{-\frac{1}{2h^2}(x_i-x_j)^2} \sum_{j=1}^M e^{-\frac{1}{2h^2}(y_i-y_j)^2}}
+\]
+where $h$ is a tuning parameter for the kernel width and empirically set $h=0.3$.
+% i and j are indices for samples.
+% In our analysis, we normalize the expression data to zero mean.
+
+\subsection{Gene Selection based on Splines Regression}
+
+ Regression based on splines is a form of non-parametric
+  regression that automatically models non-linearities and
+  interactions between variables.
+
+  This is done using \emph{Splines},  continuous functions formed by connecting linear
+segments. \\ The points where the segments connect are called the \emph{knots} of the spline.
+ 
+A particularly efficient form of splines regression is $B$-splines
+where the splines are $B_{mp}$ $p$-th order polynomial of degree $p-1$
+with finite support over the interval and 0 everywhere.
+    
+\begin {itemize}
+\item $\varsigma=\lbrace t_1 < \cdots < t_N \rbrace$ non decreasing  knot sequence
+\item $\left[ t_m,t_{m+1} \right)$ half open interval
+\item $B_{mp}$ $p$-th order polynomial (degree $p-1$) with finite
+  support over the interval and 0 everywhere else so that
+  $\sum_{m=1}^{N-p}B_{mp}(x)=1$
+\item then  $s(x)=\sum_{m=1}^{N-p}B_{mp}(x)c_m$
+\end{itemize}
+
+Clustering using Spline regression is performed using the following algorithm:
+\begin {enumerate}
+\item Select of the genes \emph{with a negative significant correlation}.
+    \\ Eventually apply heuristic additional filters that remove genes that are clearly non-L-shaped.
+\item Fit a cubic regression splines curve to each pair expression--methylation.
+\item Cluster the resulting splines coefficients
+\item Select genes in clusters that correspond to L--shapes
+\end{enumerate}
+
+\subsection{Naïve approach: Negatively correlated genes}
+
+In spite of the previously described approaches, we have applied a simple one, which consists of selecting genes that are significantly negatively correlated with expression values because it is expected that genes whose expression is regulated by methylation will decrease their expression as methylation increases.
+
+It is difficult that negative correlation alone can detect L-shaped patterns but it is expected to find that between genes showing a negative correlation, not necessarily linear but at least monotonically decreasing.
+
+\section{Results and Application: Selecting L--shaped genes from a Genome-wide analysis of colorectal cancer}
+
+
+\subsection{Data pre-processing}
+
+The current analysis is performed on a consensus dataset consisting of microarray, RNAseq and methylation values of the same set of genes (around 10.000) on the same set of samples (cell lines). 
+
+The preprocessing of these values is described in the documents
+\begin{itemize}
+\item \texttt{CorrelationAnalysis0NEW-ReadAndPreprocessDataV2.pdf}: describes reading, batch effect adjustment, normalization and filtering.
+\item \texttt{CorrelationAnalysis1NEW-MatchData.pdf} describes matching of dataset on a per-gene and per-sample basis.
+\end{itemize}
+
+Methylation and expression values have been matched using the
+\texttt{Gene Symbol (HUGO)} identifier as common id. \textbf{When
+there were multiple methylation sites or multiple probesets
+available for the same gene they have been averaged}.
+
+<<readData, echo=FALSE, eval=TRUE>>=
+myExprData <- read.table(file=file.path(dadesDir,"DatosMicroarrays.csv"),header=TRUE, sep=";",dec=",", row.names = 1)
+myRNAseqData <- read.table(file=file.path(dadesDir,"DatosRNAseq.csv"),header=TRUE, sep=";",dec=",", row.names = 1)
+myMetilData <- read.table(file=file.path(dadesDir,"DatosMetilacion.csv"),header=TRUE, sep=";",dec=",", row.names = 1)
+myCorMA_MetData <- read.table(file=file.path(dadesDir,
+                    "Correlations-Microarrays(RMA)-Meth(3-way-Match).csv"), header=TRUE, sep=";",dec=",")
+myCorRNASeq_MetData <- read.table(file=file.path(dadesDir,
+                    "Correlations-RNAseq-Meth (3-way-Match).csv"),
+                    header=TRUE, sep=";",dec=",")
+@ 
+
+Expression values vary in a wide scale, whereas methylation values are percentages ranging between 0 and 1. In order to facilitate joint analyses expression and methylation data \emph{have been separately scaled and then combined into a commom data matrix again}. 
+
+\section{Results for the Methylation and Expression datasets}
+\subsection{Results from selecting L-shaped genes based on mutual information}
+
+Specific functions for computing \textit{conditional Mutual
+  Information} between methylation and expression data have been
+developed and stored as an R file that is sourced during the execution
+(and that will be turned into a package).
+
+The procedure followed for each gene is as follows:
+\begin{itemize}
+\item First, by varying the value of $t$ between $0$ and $1$ the value
+  of $cMI$ is computed for each value of $t$.
+\item Next, the value of $t$ with the smallest $cMI$ value is
+  selected. In order for a gene to be selected it is required that
+  \begin{itemize}
+  \item The value of $cMI$ in the first column, $t_0$, is bigger than 0.1
+  \item The ratio between other $cMI$ values and that first value is
+    smaller than that of the first column.
+  \end{itemize}
+\item Next we proceed to select those genes with an L--shaped
+  patter. With this aim we look for the value of $t$ where $cMI$ is
+  minimized and we keep those genes verifying that their mean
+  expression on the left of that point is smaller than that of the
+  right of that point. (That is ``L--shaped'').
+\end{itemize}
+
+%We filtered for L-shapes using a combination of three criteria:
+%\begin{itemize}
+%\item the ratio $r<0.25$
+%\item unconditioned MI $\mathit{cMI}(0)>0.1$
+%\item the median expression on the left side of the optimal threshold $t^{\ast}$ is higher
+%than the median expression on the right side.
+%\end{itemize}
+
+
+The parameters are chosen according to a random permutation test (see Liu(2012)).
+
+<<computeCMIStep1, eval=TRUE, echo=FALSE>>=
+# Aquest bloc tarda una mica
+# Cal posar la variable booleana "calculaCMI" a TRUE si es volen recalcular les dades
+# Es pot deixar a false si no hi ha canvis i s'opta per llegir els resultats d el'arxiu
+
+#################################################
+metilDat1 <- myMetilData[complete.cases(myMetilData), ]
+exprDat1 <- myExprData[complete.cases(myExprData), ]
+ptm <- proc.time()
+cmiValues <- computeCMI (metilDat1, exprDat1)
+proc.time()-ptm
+@ 
+
+<<computeCMIStep2selection1, echo=FALSE, eval=TRUE>>=
+cmi<-cmiValues
+cmi.min <- apply(cmi, 1,min)
+ratio <- cmi.min/cmi[,1]
+
+filter <- cmi[,1] > 0.1 & ratio < 0.25
+Metil.sel <- myMetilData[filter,]
+Expr.sel <- myExprData[filter,]
+cmi.sel <- cmi[filter, ]
+cmi.min.sel <- cmi.min[filter]
+
+n.sel <- dim(Metil.sel)[1]
+@
+
+<<selection2, echo=FALSE>>=
+criteri3 <- logical(n.sel)
+for(i in 1:n.sel){
+   tt <- seq(0,1,by=0.01)
+  t.ast <- mean(tt[which(cmi.sel[i,] == cmi.min.sel[i])])
+  aux.df <- na.omit(data.frame(dataMeth = as.numeric(Metil.sel[i,]),
+                               dataExp = as.numeric(Expr.sel[i,]))
+                   )
+  dataMeth <- aux.df$dataMeth
+  dataExp <- aux.df$dataExp
+  filter <- dataMeth < t.ast
+  x <- dataExp[filter]
+  y <- dataExp[!filter]
+  criteri3[i] <- mean(x) > mean(y)
+}
+n.sel <- sum(criteri3)
+Metil.sel <- Metil.sel[criteri3,]
+Expr.sel <- Expr.sel[criteri3,]
+cmi.sel <- cmi.sel[criteri3, ]
+cmi.min.sel <- cmi.min.sel[criteri3]
+
+genes.sel.cmi <- rownames(Metil.sel)
+save(genes.sel.cmi , file=file.path(resultsDir, "genesSelCMIMetExpr.RData"))
+
+write.csv(genes.sel.cmi, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "genesSelCMIMetExpr.csv"))
+
+
+@
+
+The results of applying the three selection steps are:
+
+\begin{enumerate}
+\item There are \Sexpr{sum(ratio < 0.25)} genes such that $r<0.25$.
+\item Those that, besides verify that  $cMI(0)>0.1$ son \Sexpr{dim(Metil.sel)[1]}.
+\item Finally there are \Sexpr{n.sel} genes that can be selected by the three criteria.
+\end{enumerate}
+The selected genes have been stored in file \verb|genesSelCMI.RData|
+and in file \verb|genesSelCMI.csv| as a csv file.
+
+Figure \ref{cMISelecteGene1} above depicts the the
+methylation--expression scatterplot for gene \texttt{CFTR}. The lower panel plots the conditional mutual
+information as a function of the methylation level (``$t$'')  for that gene.
+
+\begin{figure}[htbp]
+<<graficCMI1, echo=FALSE>>=
+par(mfcol=c(2,1))
+# for(i in 1:n.sel){
+i<-2
+Metil.vector <- Metil.sel[i, ]
+Expr.vector <- Expr.sel[i, ]
+
+x <- as.vector(t(Metil.vector))
+y <- as.vector(t(Expr.vector))
+plot(x,y,xlim=c(0,1), xlab="methylation", ylab="expression", main=rownames(Metil.sel)[i])
+t.ast <- mean(tt[which(cmi.sel[i,] == cmi.min.sel[i])])
+abline(v=t.ast)
+plot(tt,cmi.sel[i,], type="l", xlab="methylation", ylab="conditional MI")
+abline(v=t.ast)
+# }
+par(mfcol=c(1,1))
+@
+\caption{\label{cMISelecteGene1}{L--shape pattern of a gene selected using Conditional Mutual Information}}
+\end{figure}
+
+File \verb|plotsCMIselectedMetExpr.pdf| contains the scatterplot for each of
+the genes selected using this criteria.
+
+<<graficCMI2, echo=FALSE>>=
+pdf(file=file.path(resultsDir, "plotsCMIselectedMetExpr.pdf"))
+par(mfrow=c(4,4))
+for(i in 1:n.sel){
+    Metil.vector <- Metil.sel[i, ]
+    Expr.vector <- Expr.sel[i, ]
+    x <- as.vector(t(Metil.vector))
+    y <- as.vector(t(Expr.vector))
+    plot(x,y,xlim=c(0,1), xlab="methylation", ylab="expression", main=rownames(Metil.sel)[i])
+    t.ast <- mean(tt[which(cmi.sel[i,] == cmi.min.sel[i])])
+    abline(v=t.ast)
+    tt <- seq(0,1,by=0.01)
+    plot(tt,cmi.sel[i,], type="l", xlab="methylation", ylab="conditional MI")
+    abline(v=t.ast)
+}
+par(mfrow=c(1,1))
+dev.off()
+@
+
+\subsection{Gene selection based on Splines regression}
+
+The first condition will be select genes with a negative Sperman correlations values. Nevertheless,
+considering that when selecting genes regulated by methylation one of
+the premises is that we must select genes with samples that cover 2
+situations
+\begin {itemize}
+\item low methylation/high expression
+\item high methylation/low expression
+\end {itemize}
+we impose the condition that the methylation values in all the samples must be mainly high or low. 
+
+One possibility would be to select genes:
+\begin{itemize}
+\item methylation values above the quantile 75 (high methylation) \textbf{and}
+\item methylation values under the quantile 25 (low methylation)
+\end{itemize}
+
+Sumarizing, the initial selection will be:
+\begin{itemize}
+\item Genes with a significant negative correlation (p < 0.05) 
+\item Genes with a high methylation percentile (e.g. 75\%) greater than a ``reasonable'' upper threshold (e.g. 0.6).
+\item Genes with a low methylation percentile  (e.g. 25\%) smaller than a   ``reasonable'' lower threshold (ex. 0.2).
+\end{itemize}
+
+
+
+The result of checking different methylation thresholds is shown below.
+
+<<testSelections, echo=FALSE>>=
+
+myData<-merge(myMetilData, myExprData, by=0, all=TRUE)
+rownames(myData)=myData$Row.names
+myData$Row.names<-NULL
+myCorr<-myCorMA_MetData
+
+QInf<- 25; QSup=75
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr, metInf=0.25, metSup= 0.75, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup,"nGenes=", nrow(DadesCor1),"\n")
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr, metInf=0.10, metSup= 0.9, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr, metInf=0.33, metSup= 0.66, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+
+genes.sel.Splines<-row.names(DadesCor1)
+write.csv(genes.sel.Splines, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "genesSelSplinesMetExpr.csv"))
+
+
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr, metInf=0.25, metSup= 0.50, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr, metInf=0.5, metSup= 0.5, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+
+QInf<- 15; QSup=85
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr, QInf= QInf, QSup= QSup, metInf=0.25, metSup= 0.75, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr,  QInf= QInf, QSup= QSup, metInf=0.10, metSup= 0.9, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr,  QInf= QInf, QSup= QSup, metInf=0.33, metSup= 0.66, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr,  QInf= QInf, QSup= QSup, metInf=0.25, metSup= 0.50, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor1),"\n")
+DadesCor1 <- Initialselection(myData, myMetilData, myCorr,  QInf= QInf, QSup= QSup, metInf=0.5, metSup= 0.5, pAdj=0.05)
+
+QInf<- 0; QSup=100
+DadesCorAll1 <- Initialselection(myData, myMetilData, myCorr, QInf= QInf, QSup= QSup, metInf=0.25, metSup= 0.75, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCorAll1),"\n")
+genes.sel.naif<-row.names(DadesCorAll1)
+write.csv(genes.sel.naif, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "genesSelNaifMetExpr.csv"))
+QInf<- 25; QSup=75
+DadesCorFilt1 <- Initialselection(myData, myMetilData, myCorr, QInf= QInf, QSup= QSup, metInf=0.33, metSup= 0.66, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCorFilt1),"\n")
+DadesCor1 <- DadesCorFilt1
+@
+
+After trying several values for the methylation quantiles we have decided to choose a more restritive  criteria selection giving  a short list of selected genes. The  list  contains \Sexpr{nrow(DadesCorFilt1)}  genes.
+The clustering of the  list of genes is explained in the following analyses.
+
+<<lista-matrices, echo=FALSE>>=
+#amb els gens seleccionats fem la llista de les matrius de dades met/expr
+ngenesCor <- dim(DadesCor1)[1]
+
+ListGenes <- list()
+for (i in 1:ngenesCor){
+  x<-as.numeric(DadesCor1[i,1:25])
+  y<-as.numeric(DadesCor1[i,26:50])
+  DadesGene<-na.omit(data.frame(met=x,expr=y))
+  ListGenes[[i]]<-DadesGene
+}
+namesGenesCor <- row.names(DadesCor1)
+names(ListGenes)<-as.character(namesGenesCor)
+@
+
+
+\subsubsection{Creating clusters of negatively correlated genes}
+
+\paragraph{b-splines calculation}
+
+We have fitted the splines regression, using the function\verb|splines| with
+\verb|degree=2|, and saved the cofficients of the resulting function.
+
+<<b-splines, echo=FALSE>>=
+# Obtenim les taules summary per cada gen i guardem els coeficients de les funcions splines
+# 
+ListSplines <- list()
+ListSplines<-lapply(ListGenes, calculaSplines)
+names(ListSplines) <- namesGenesCor
+@
+
+\paragraph{Cluster analysis}
+
+A cluster analysis of the met/expr patterns has been performed by means of a 
+hierarchical clusterig of the coeficients of the fitted functions.
+
+<<cluster-data2cluster, echo=FALSE>>=
+matDadesCluster <- matrix(0, nrow=ngenesCor, ncol=6)
+for(i in 1:ngenesCor) matDadesCluster[i,] <- ListSplines[[i]][,1]
+colnames(matDadesCluster) <- c("interc", "coef1", "coef2","coef3","coef4","coef5")
+row.names(matDadesCluster) <- namesGenesCor
+@ 
+
+First we check which may be an appropriate number of clusters using the withins groups sum of squares of using a kmeans method.
+
+<<howManyClusters, echo=FALSE>>=
+#proves amb k-means per intuir el nombre de clusters
+opt<-par(mfrow=c(1,1))
+wss <- (nrow(matDadesCluster)-1)*sum(apply(matDadesCluster,2,var))        # si només fem un grup
+for (i in 2:10) #si fem 2,3....10 grups
+  {km<-kmeans(matDadesCluster, centers=i)
+   wss[i] <- km$tot.withinss
+  }
+
+plot(1:10, wss, type="b", xlab="Number of Clusters",ylab="Within groups sum of squares")
+###podrien ser 5 o 6
+@
+
+%%The plot suggests that there may be 5 or 6 clusters.
+
+Next we do a hierarchical clustering using the ``1-correlation'' distance.
+
+<<hierarchicalCluster, echo=FALSE>>=
+matDist<-as.dist(1-cor(t(matDadesCluster)))
+Hcluster<-hclust(matDist, method="average")
+plot(Hcluster, main="cluster de coeficients")
+
+Hclustgroups0.2<- cutree(Hcluster, h=0.2) #vector de longitut nombre de gens amb el numero de cluster
+table(Hclustgroups0.2) ###surten 4
+Hclustgroups<-Hclustgroups0.2
+nclusters<-dim(table(Hclustgroups))
+names(Hclustgroups)<-row.names(matDadesCluster)
+
+genesInClusters<-list()
+for (i in 1:nclusters)
+{
+  genesInClusters[[i]]<-names(Hclustgroups[Hclustgroups==i])
+}
+
+DadesWhithCluster<-cbind(DadesCor1, Hclustgroups)
+
+#patr? de cada cluster: ho he fet amb la mitjana i la mediana dels valors dels gens de cada cl?ster
+MeanPattern<-NULL
+MedianPattern<-NULL
+mymean<-function(x) {mean(x, na.rm=TRUE)}
+ 
+for (i in 1:nclusters)
+{
+  D<-DadesCor1[Hclustgroups==i,]
+  DMedian<-apply(D,2,Qnn,50)
+  DMean<-apply(D,2,mymean)
+  MeanPattern<-rbind(MeanPattern,DMean)
+  MedianPattern<-rbind(MedianPattern,DMedian)
+}
+ListMeanPatterns <- list()
+for (i in 1:nclusters)
+{
+  x<-as.numeric(MeanPattern[i,1:25])
+  y<-as.numeric(MeanPattern[i,26:50])
+  DadesPattern<-na.omit(data.frame(met=x,expr=y))
+  ListMeanPatterns[[i]]<-DadesPattern
+}
+ListMedianPatterns <- list()
+for (i in 1:nclusters)
+{
+  x<-as.numeric(MedianPattern[i,1:25])
+  y<-as.numeric(MedianPattern[i,26:50])
+  DadesPattern<-na.omit(data.frame(met=x,expr=y))
+  ListMedianPatterns[[i]]<-DadesPattern
+}
+
+@
+
+Finally we select the \Sexpr{nclusters} clusters obtained using a "cuttree" al level 0.2
+
+The plots of the genes in each cluster can be found in the pdf files \texttt{ Cluster1MetExpr.pdf,Cluster2MetExpr.pdf.....} in the folder \texttt{results}.
+
+<<clusterGraph, echo=FALSE>>=
+#Plot clusters
+opt<-par(mfcol=c(4,4), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+
+for (i in 1:nclusters)
+{
+nFile<-paste(graficsDir,"/ClusterMetExpr",i,".pdf", sep="")  
+GInCluster<-names(Hclustgroups[Hclustgroups==i])
+PlotAGroup(nFile,GInCluster,ListGenes)
+}
+
+#Plot patterns
+toPDF <- FALSE #canviat a TRUE per guardar pdf tambe
+if (toPDF) {
+  nameFile<-paste(graficsDir,"/PatternsMetExpr",".pdf", sep="")  
+  pdf(nameFile)
+}
+opt<-par(mfrow=c(2,2), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+for (i in 1:nclusters)
+{
+myTitle<-paste("pattern",i, sep=" ")
+mat<-ListMeanPatterns[[i]]
+plotWithSplines(mat,myTitle)
+}
+opt<-par(mfrow=c(2,2), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+for (i in 1:nclusters)
+{
+myTitle<-paste("pattern",i, sep=" ")
+mat<-ListMedianPatterns[[i]]
+plotWithSplines(mat,myTitle)
+}
+if (toPDF) dev.off()
+@
+
+
+To compare the two methods used to select the genes  we have studied the intersection between CMI and cluster 1. 
+
+<<union>>=
+genescluster1 <- names(Hclustgroups[Hclustgroups==1])
+#genescluster2 <- names(Hclustgroups[Hclustgroups==2])
+#genesCluster<-union(genescluster1,genescluster2)
+
+genescriteri3 <- genes.sel.cmi
+
+tall1 <- intersect(genescriteri3, genescluster1)
+#tall2 <- intersect(genescriteri3, genesCluster)
+#gensComuns <- list(tall1=tall1,tall2=tall2)
+length(tall1)
+#length(tall2)
+@
+
+The plot of the intersection can be found in the "results" folder.
+
+<<clusterGraph2, echo=FALSE>>=
+nameFile<-paste(graficsDir,"/CMIandCl1MetExpr",".pdf", sep="")  
+pdf(nameFile)
+opt<-par(mfcol=c(4, 4), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+GenesInPlot<-tall1
+for (IdGene in GenesInPlot ) 
+{
+  myTitle<-paste("Gene",IdGene, sep=" ")
+  mat<-ListGenes[[IdGene]]
+  plotWithSplines(mat,myTitle)
+}
+dev.off()
+
+#nameFile<-paste(graficsDir,"/CMIandCL1_2MetExpr",".pdf", sep="")  
+#pdf(nameFile)
+#opt<-par(mfrow=c(3,3), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+#GenesInPlot<-tall2
+#for (IdGene in GenesInPlot ) 
+#{
+#  myTitle<-paste("Gene",IdGene, sep=" ")
+#  mat<-ListGenes[[IdGene]]
+#  plotWithSplines(mat,myTitle)
+#}
+#dev.off()
+@
+
+\subsubsection{The gene lists}
+
+As a result of the selection there have been obtained several lists.
+\begin{enumerate}
+\item \texttt{Naif}: Genes showing a significant negative Spearman Correlation between expression and methylation.
+\item \texttt{CMI}:Genes selected for having an L--shape based on conditional mutual information.
+\item \texttt{Splines}:Genes selected for having an L-shape based on clustering curves adjusted by Splines regression.
+\item \texttt{Original}: Gene list provided by the researchers from a first selection.
+\end{enumerate}
+
+
+<<getGeneLists>>=
+if(!(exists("geneSymbols"))) 
+  geneSymbols <- read.csv(file=file.path(resultsDir, "genesAll.csv"))[,1]
+if(!(exists("genes.sel.cmi"))) 
+  genes.sel.cmi <- read.csv(file=file.path(resultsDir, "genesSelCMIMetExpr.csv"))[,1]
+if(!(exists("genes.sel.Splines"))) 
+  genes.sel.Splines <- read.csv(file=file.path(resultsDir, "genesSelSplinesMetExpr.csv"))[,1]
+if(!(exists("genes.sel.naif"))) 
+  genes.sel.naif <- read.csv(file=file.path(resultsDir, "genesSelNaifMetExpr.csv"))[,1]
+if(!(exists("genes.sel.original"))) 
+  genes.sel.original <- read.csv(file=file.path(resultsDir, "genesSelOriginal.csv"))[,1]
+commonNaifCMI <- intersect(genes.sel.cmi, genes.sel.naif)
+commonNaifCMISplines <- union(commonNaifCMI, genes.sel.Splines)
+write.csv(commonNaifCMISplines, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "commonGenesMetExpr.csv"))
+@
+The genes have been stored using their ``gene symbols". Before they are used for exploration these are replaced by the ``Entrez" identifiers which are better suited for functional analysis tools.
+
+<<Symbols2Entrez>>=
+require(Homo.sapiens)
+genes <- as.character(genes.sel.cmi)
+cmiGeneList<- select(Homo.sapiens, keys=genes,columns="ENTREZID", keytype="SYMBOL")
+genes <- as.character(genes.sel.Splines)
+splinesGeneList<- select(Homo.sapiens, keys=genes,  columns="ENTREZID", keytype="SYMBOL")
+genes <- as.character(genes.sel.naif)
+naifGeneList<- select(Homo.sapiens, keys=genes, 
+                 columns="ENTREZID", keytype="SYMBOL")
+genes <- as.character(genes.sel.original)
+originalGeneList<- select(Homo.sapiens, keys=genes, 
+                 columns="ENTREZID", keytype="SYMBOL")
+
+geneSymbols <- as.character(geneSymbols)
+globalGeneList <- select(Homo.sapiens, keys=geneSymbols, columns=c("ENTREZID"), keytype="SYMBOL")
+
+entrezAll <- as.character(globalGeneList[,"ENTREZID"])
+entrezCMI <- cmiGeneList[,"ENTREZID"]
+entrezSplines <- splinesGeneList[,"ENTREZID"]
+entrezNaif <- naifGeneList[,"ENTREZID"]
+entrezOriginal <- originalGeneList[,"ENTREZID"]
+
+entrezAll <- unique(entrezAll[!is.na(entrezAll)])
+entrezCMI <- unique(entrezCMI [!is.na(entrezCMI )])
+entrezSplines <- unique(entrezSplines[!is.na(entrezSplines)])
+entrezNaif <- unique(entrezNaif [!is.na(entrezNaif)])
+entrezOriginal <- unique(entrezOriginal [!is.na(entrezOriginal)])
+  
+commonNaifOriginal <- intersect(entrezNaif, entrezOriginal)
+commonNaifCMI <- intersect(entrezNaif, entrezCMI)
+commonOriginalSplines <- intersect(entrezOriginal, entrezCMI)
+commonAll <- intersect(intersect(commonNaifCMI, entrezSplines ), entrezOriginal)
+@
+
+File \texttt{vennPlotsMetExpr.pdf} contains the plots showing the number of common genes between the four lists.
+
+<<plot2File>>=
+pdf(file=file.path(resultsDir, "vennPlotsMetExpr.pdf"))
+require(VennDiagram)
+
+myVenn2a <- venn.diagram(x=list(original=entrezOriginal, NAIF=entrezNaif), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn2a);
+grid.newpage()
+myVenn2b <- venn.diagram(x=list(original=entrezOriginal, SPLINES=entrezSplines), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn2b);
+grid.newpage()
+myVenn2c <- venn.diagram(x=list(original=entrezOriginal, CMI=entrezCMI), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn2c);
+grid.newpage()
+myVenn2d <- venn.diagram(x=list(Naif=entrezNaif, SPLINES=entrezSplines), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn2d);
+grid.newpage()
+myVenn2e <- venn.diagram(x=list(Naif=entrezNaif, CMI=entrezCMI),filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn2e);
+grid.newpage()
+myVenn2f<- venn.diagram(x=list(CMI=entrezCMI, SPLINES=entrezSplines), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn2f);
+grid.newpage()
+myVenn3a <- venn.diagram(x=list(CMI=entrezCMI, NAIF=entrezNaif, original=entrezOriginal ), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn3a);
+grid.newpage()
+myVenn3b<- venn.diagram(x=list(SPLINES=entrezSplines, NAIF=entrezNaif, original=entrezOriginal ), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn3b);
+grid.newpage()
+myVenn3c <- venn.diagram(x=list(SPLINES=entrezSplines, NAIF=entrezNaif, CMI=entrezCMI), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn3c);
+grid.newpage()
+myVenn4<- venn.diagram(x=list(CMI=entrezCMI, SPLINES=entrezSplines, NAIF=entrezNaif, original=entrezOriginal ), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid","orange"))
+grid.draw(myVenn4);
+grid.newpage()
+dev.off()
+@
+
+Figure \ref{venn1} shows the genes in common between the four lists.
+
+\begin{figure}
+<<plotVenn1>>=
+myVenn4<- venn.diagram(x=list(CMI=entrezCMI, SPLINES=entrezSplines, NAIF=entrezNaif), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn4)
+@
+\caption{\label{venn1}Putative genes selected by methylation by either of the three methods: CMI, Splines and 'Naif'}
+\end{figure}
+
+
+\section{Results for the Methylation and RNAseq datasets}
+\subsection{Results from selecting L-shaped genes based on mutual information}
+
+The procedure followed for each gene is the same one that we applied for the Methyltion and Expression datasets, according to a random permutation test by Liu(2012).
+
+<<computeCMIStep1b, eval=TRUE, echo=FALSE>>=
+# Aquest bloc tarda una mica
+# Cal posar la variable booleana "calculaCMI" a TRUE si es volen recalcular les dades
+# Es pot deixar a false si no hi ha canvis i s'opta per llegir els resultats d el'arxiu
+
+#################################################
+metilDat1 <- myMetilData[complete.cases(myMetilData), ]
+seqDat1 <- myRNAseqData[complete.cases(myRNAseqData), ]
+ptm <- proc.time()
+cmiValues1 <- computeCMI (metilDat1, seqDat1)
+proc.time()-ptm
+@ 
+
+<<computeCMIStep2selection1b, echo=FALSE, eval=TRUE>>=
+cmi1<-cmiValues1
+cmi.min1 <- apply(cmi1, 1,min)
+ratio1 <- cmi.min1/cmi1[,1]
+
+filter1 <- cmi1[,1] > 0.1 & ratio1 < 0.25
+Metil.sel1 <- myMetilData[filter1,]
+Seq.sel <- myRNAseqData[filter1,]
+cmi.sel1 <- cmi1[filter1, ]
+cmi.min.sel1 <- cmi.min1[filter1]
+
+n.sel1 <- dim(Metil.sel1)[1]
+@
+
+<<selection2b, echo=FALSE>>=
+criteri3b <- logical(n.sel1)
+for(i in 1:n.sel1){
+  tt <- seq(0,1,by=0.01)
+  t.ast1 <- mean(tt[which(cmi.sel1[i,] == cmi.min.sel1[i])])
+  aux.df1 <- na.omit(data.frame(dataMeth1 = as.numeric(Metil.sel1[i,]),
+                               dataSeq = as.numeric(Seq.sel[i,]))
+                   )
+  dataMeth1 <- aux.df1$dataMeth1
+  dataSeq <- aux.df1$dataSeq
+  filter1 <- dataMeth1 < t.ast1
+  x <- dataSeq[filter1]
+  y <- dataSeq[!filter1]
+  criteri3b[i] <- mean(x) > mean(y)
+}
+n.sel1 <- sum(criteri3b)
+Metil.sel1 <- Metil.sel1[criteri3b,]
+Seq.sel <- Seq.sel[criteri3b,]
+cmi.sel1 <- cmi.sel1[criteri3b, ]
+cmi.min.sel1 <- cmi.min.sel1[criteri3b]
+
+genes.sel.cmi1 <- rownames(Metil.sel1)
+save(genes.sel.cmi1 , file=file.path(resultsDir, "genesSelCMIMetSeq.RData"))
+
+write.csv(genes.sel.cmi1, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "genesSelCMIMetSeq.csv"))
+@
+
+
+The selected genes have been stored in file \verb|genesSelCMIMetSeq.RData|
+and in file \verb|genesSelCMIMetSeq.csv| as a csv file.
+
+File \verb|plotsCMIselectedMetSeq.pdf| contains the scatterplot for each of
+the genes selected using this criteria.
+
+<<graficCMI2b, echo=FALSE>>=
+pdf(file=file.path(resultsDir, "plotsCMIselectedMetSeq.pdf"))
+par(mfrow=c(4,4))
+for(i in 1:n.sel1){
+    Metil.vector1 <- Metil.sel1[i, ]
+    Seq.vector <- Seq.sel[i, ]
+    x <- as.vector(t(Metil.vector1))
+    y <- as.vector(t(Seq.vector))
+    plot(x,y,xlim=c(0,1), xlab="methylation", ylab="expression", main=rownames(Metil.sel1)[i])
+    t.ast1 <- mean(tt[which(cmi.sel1[i,] == cmi.min.sel1[i])])
+    abline(v=t.ast1)
+    tt <- seq(0,1,by=0.01)
+    plot(tt,cmi.sel1[i,], type="l", xlab="methylation", ylab="conditional MI")
+    abline(v=t.ast1)
+}
+par(mfrow=c(1,1))
+dev.off()
+@
+
+\subsection{Gene selection based on Splines regression}
+
+Following the analysis structure as with the methylation and expression datasets, a Splines selection will be performed, where the first condition will be to select genes with a negative Sperman correlations values. 
+We impose the condition that the methylation values in all the samples must be mainly high or low. 
+
+The result of checking different methylation thresholds is shown below.
+
+<<testSelectionsb, echo=FALSE>>=
+
+myData1<-merge(myMetilData, myRNAseqData, by=0, all=TRUE)
+rownames(myData1)=myData1$Row.names
+myData1$Row.names<-NULL
+myCorr1<-myCorRNASeq_MetData
+
+QInf<- 25; QSup=75
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1, metInf=0.25, metSup= 0.75, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup,"nGenes=", nrow(DadesCor2),"\n")
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1, metInf=0.10, metSup= 0.9, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1, metInf=0.33, metSup= 0.66, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+
+genes.sel.Splines1<-row.names(DadesCor2)
+write.csv(genes.sel.Splines1, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "genesSelSplinesMetSeq.csv"))
+
+
+DadesCor2<- Initialselection(myData1, myMetilData, myCorr1, metInf=0.25, metSup= 0.50, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1, metInf=0.5, metSup= 0.5, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+
+QInf<- 15; QSup=85
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1, QInf= QInf, QSup= QSup, metInf=0.25, metSup= 0.75, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1,  QInf= QInf, QSup= QSup, metInf=0.10, metSup= 0.9, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1,  QInf= QInf, QSup= QSup, metInf=0.33, metSup= 0.66, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1,  QInf= QInf, QSup= QSup, metInf=0.25, metSup= 0.50, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCor2),"\n")
+DadesCor2 <- Initialselection(myData1, myMetilData, myCorr1,  QInf= QInf, QSup= QSup, metInf=0.5, metSup= 0.5, pAdj=0.05)
+
+QInf<- 0; QSup=100
+DadesCorAll2 <- Initialselection(myData1, myMetilData, myCorr1, QInf= QInf, QSup= QSup, metInf=0.25, metSup= 0.75, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCorAll2),"\n")
+genes.sel.naif1<-row.names(DadesCorAll2)
+write.csv(genes.sel.naif1, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "genesSelNaifMetSeq.csv"))
+QInf<- 25; QSup=75
+DadesCorFilt2 <- Initialselection(myData1, myMetilData, myCorr1, QInf= QInf, QSup= QSup, metInf=0.33, metSup= 0.66, pAdj=0.05)
+cat("\n QInf=",QInf," QSup= ", QSup, "nGenes=",nrow(DadesCorFilt2),"\n")
+DadesCor2 <- DadesCorFilt2
+@
+
+A  shortlist  of selected genes  can be found in  \Sexpr{nrow(DadesCorFilt2)}.  The clustering of the  list of genes is explained in the following analyses.
+
+<<lista-matricesb, echo=FALSE>>=
+#amb els gens seleccionats fem la llista de les matrius de dades met/expr
+ngenesCor1 <- dim(DadesCor2)[1]
+
+ListGenes1 <- list()
+for (i in 1:ngenesCor1){
+  x<-as.numeric(DadesCor2[i,1:25])
+  y<-as.numeric(DadesCor2[i,26:50])
+  DadesGene1<-na.omit(data.frame(met=x,expr=y)) #mantenir a expr per no haber de canviar formula calculaSplines mes a baix
+  ListGenes1[[i]]<-DadesGene1
+}
+namesGenesCor1 <- row.names(DadesCor2)
+names(ListGenes1)<-as.character(namesGenesCor1)
+@
+
+
+\subsubsection{Creating clusters of negatively correlated genes}
+
+\paragraph{b-splines calculation}
+
+We have fitted the splines regression, using the function\verb|splines| with
+\verb|degree=2|, and saved the cofficients of the resulting function.
+
+<<b-splinesb, echo=FALSE>>=
+# Obtenim les taules summary per cada gen i guardem els coeficients de les funcions splines
+# 
+ListSplines <- list()
+ListSplines<-lapply(ListGenes1, calculaSplines)
+names(ListSplines) <- namesGenesCor1
+@
+
+\paragraph{Cluster analysis}
+
+A cluster analysis of the met/RNAseq patterns has been performed by means of a 
+hierarchical clusterig of the coeficients of the fitted functions.
+
+<<cluster-data2clusterb, echo=FALSE>>=
+matDadesCluster1 <- matrix(0, nrow=ngenesCor1, ncol=6)
+for(i in 1:ngenesCor1) matDadesCluster1[i,] <- ListSplines[[i]][,1]
+colnames(matDadesCluster1) <- c("interc", "coef1", "coef2","coef3","coef4","coef5")
+row.names(matDadesCluster1) <- namesGenesCor1
+@ 
+
+We check for an appropriate number of clusters using the withins groups sum of squares of using a kmeans method.
+
+<<howManyClustersb, echo=FALSE>>=
+#proves amb k-means per intuir el nombre de clusters
+opt<-par(mfrow=c(1,1))
+wss1 <- (nrow(matDadesCluster1)-1)*sum(apply(matDadesCluster1,2,var))        # si només fem un grup
+for (i in 2:10) #si fem 2,3....10 grups
+  {km1<-kmeans(matDadesCluster1, centers=i)
+   wss1[i] <- km1$tot.withinss
+  }
+
+plot(1:10, wss1, type="b", xlab="Number of Clusters",ylab="Within groups sum of squares")
+###podrien ser 5 o 6
+@
+
+The plot suggests that there may be 5 or 6 clusters.
+
+Next we do a hierarchical clustering using the ``1-correlation'' distance.
+
+<<hierarchicalClusterb, echo=FALSE>>=
+matDist1<-as.dist(1-cor(t(matDadesCluster1)))
+Hcluster1<-hclust(matDist1, method="average")
+plot(Hcluster1, main="cluster de coeficients")
+
+Hclustgroups0.6<- cutree(Hcluster1, h=0.6) #vector de longitut nombre de gens amb el numero de cluster
+table(Hclustgroups0.6) ###surten 6
+Hclustgroups1<-Hclustgroups0.6
+nclusters1<-dim(table(Hclustgroups1))
+names(Hclustgroups1)<-row.names(matDadesCluster1)
+
+genesInClusters1<-list()
+for (i in 1:nclusters1)
+{
+  genesInClusters1[[i]]<-names(Hclustgroups1[Hclustgroups1==i])
+}
+
+DadesWhithCluster1<-cbind(DadesCor2, Hclustgroups1)
+
+#patr? de cada cluster: ho he fet amb la mitjana i la mediana dels valors dels gens de cada cl?ster
+MeanPattern1<-NULL
+MedianPattern1<-NULL
+mymean<-function(x) {mean(x, na.rm=TRUE)}
+ 
+for (i in 1:nclusters1)
+{
+  D1<-DadesCor2[Hclustgroups1==i,]
+  DMedian1<-apply(D1,2,Qnn,50)
+  DMean1<-apply(D1,2,mymean)
+  MeanPattern1<-rbind(MeanPattern1,DMean)
+  MedianPattern1<-rbind(MedianPattern1,DMedian)
+}
+ListMeanPatterns1 <- list()
+for (i in 1:nclusters1)
+{
+  x<-as.numeric(MeanPattern1[i,1:25])
+  y<-as.numeric(MeanPattern1[i,26:50])
+  DadesPattern1<-na.omit(data.frame(met=x,expr=y))
+  ListMeanPatterns1[[i]]<-DadesPattern1
+}
+ListMedianPatterns1 <- list()
+for (i in 1:nclusters1)
+{
+  x<-as.numeric(MedianPattern1[i,1:25])
+  y<-as.numeric(MedianPattern1[i,26:50])
+  DadesPattern1<-na.omit(data.frame(met=x,expr=y))
+  ListMedianPatterns1[[i]]<-DadesPattern1
+}
+
+@
+
+Finally we select the \Sexpr{nclusters1} clusters obtained using a "cuttree" al level 0.6.
+
+
+The plots of the genes in each cluster can be found in the pdf files \texttt{ Cluster1MetSeq.pdf,Cluster2MetSeq.pdf.....} in the folder \texttt{ figures}.
+
+<<clusterGraphb, echo=FALSE>>=
+#Plot clusters
+opt<-par(mfrow=c(3,3), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+
+for (i in 1:nclusters1)
+{
+nFile1<-paste(graficsDir,"/ClusterMetSeq",i,".pdf", sep="")  
+GInCluster1<-names(Hclustgroups1[Hclustgroups1==i])
+PlotAGroup(nFile1,GInCluster1,ListGenes1)
+}
+
+#Plot patterns
+toPDF <- FALSE #canviat a TRUE per guardar pdf tambe
+if (toPDF) {
+  nameFile1<-paste(graficsDir,"/PatternsMetSeq",".pdf", sep="")  
+  pdf(nameFile1)
+}
+opt<-par(mfrow=c(2,2), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+for (i in 1:nclusters1)
+{
+myTitle<-paste("pattern",i, sep=" ")
+mat<-ListMeanPatterns1[[i]]
+plotWithSplines(mat,myTitle)
+}
+opt<-par(mfrow=c(2,2), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+for (i in 1:nclusters1)
+{
+myTitle<-paste("pattern",i, sep=" ")
+mat<-ListMedianPatterns1[[i]]
+plotWithSplines(mat,myTitle)
+}
+if (toPDF) dev.off()
+@
+
+
+It seems realistic to join together the genes of the clusters 1 and 2 as their pattern seems to be according to genes regulated by methylation.
+
+To compare the two methods used to select the genes  we have studied the intersection between CMI and cluster 1 and between CMI and the union of cluster 1 and 2. 
+
+<<unionb>>=
+genesclustera <- names(Hclustgroups1[Hclustgroups1==1])
+genesclusterb <- names(Hclustgroups1[Hclustgroups1==2])
+genesClusterA<-union(genesclustera,genesclusterb)
+
+genescriteri3b <- genes.sel.cmi1
+
+talla <- intersect(genescriteri3b, genesclustera)
+tallb <- intersect(genescriteri3b, genesClusterA)
+gensComuns <- list(talla=talla,tallb=tallb)
+length(talla)
+length(tallb)
+@
+
+The plot of the intersection can be found in "figures" folder.
+
+<<clusterGraph2b, echo=FALSE>>=
+nameFile<-paste(graficsDir,"/CMIandCl1MetSeq",".pdf", sep="")  
+pdf(nameFile)
+opt<-par(mfrow=c(3,3), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+GenesInPlot<-talla
+for (IdGene in GenesInPlot ) 
+{
+  myTitle<-paste("Gene",IdGene, sep=" ")
+  mat<-ListGenes1[[IdGene]]
+  plotWithSplines(mat,myTitle)
+}
+dev.off()
+
+nameFile<-paste(graficsDir,"/CMIandCL1_2MetSeq",".pdf", sep="")  
+pdf(nameFile)
+opt<-par(mfrow=c(3,3), pty="m", oma=c(0,0,2,0), mar=c(5,4,2,2), font.main=1)
+GenesInPlot<-tallb
+for (IdGene in GenesInPlot ) 
+{
+  myTitle<-paste("Gene",IdGene, sep=" ")
+  mat<-ListGenes1[[IdGene]]
+  plotWithSplines(mat,myTitle)
+}
+dev.off()
+@
+
+\subsubsection{The gene lists}
+
+As a result of the selection there have been obtained several lists (as we did before).
+\begin{enumerate}
+\item \texttt{Naif}
+\item \texttt{CMI}
+\item \texttt{Splines}
+\item \texttt{Original} This is the same list as before
+\end{enumerate}
+
+<<getGeneListsb>>=
+if(!(exists("geneSymbols"))) 
+  geneSymbols <- read.csv(file=file.path(resultsDir, "genesAll.csv"))[,1]
+if(!(exists("genes.sel.cmi"))) 
+  genes.sel.cmi1 <- read.csv(file=file.path(resultsDir, "genesSelCMIMetSeq.csv"))[,1]
+if(!(exists("genes.sel.Splines1"))) 
+  genes.sel.Splines <- read.csv(file=file.path(resultsDir, "genesSelSplinesMetSeq.csv"))[,1]
+if(!(exists("genes.sel.naif1"))) 
+  genes.sel.naif <- read.csv(file=file.path(resultsDir, "genesSelNaifMetSeq.csv"))[,1]
+if(!(exists("genes.sel.original"))) 
+  genes.sel.original <- read.csv(file=file.path(resultsDir, "genesSelOriginal.csv"))[,1]
+commonNaifCMI1 <- intersect(genes.sel.cmi1, genes.sel.naif1)
+commonNaifCMISplines1 <- union(commonNaifCMI1, genes.sel.Splines1)
+write.csv(commonNaifCMISplines1, quote=FALSE, row.names=FALSE, file=file.path(resultsDir, "commonGenesMetSeq.csv"))
+@
+The genes have been stored using their ``gene symbols". Before they are used for exploration these are replaced by the ``Entrez" identifiers which are better suited for functional analysis tools.
+
+<<Symbols2Entrezb>>=
+require(Homo.sapiens)
+genes <- as.character(genes.sel.cmi1)
+cmiGeneList1<- select(Homo.sapiens, keys=genes,columns="ENTREZID", keytype="SYMBOL")
+genes <- as.character(genes.sel.Splines1)
+splinesGeneList1<- select(Homo.sapiens, keys=genes,  columns="ENTREZID", keytype="SYMBOL")
+genes <- as.character(genes.sel.naif1)
+naifGeneList1<- select(Homo.sapiens, keys=genes, 
+                 columns="ENTREZID", keytype="SYMBOL")
+genes <- as.character(genes.sel.original)
+originalGeneList<- select(Homo.sapiens, keys=genes, 
+                 columns="ENTREZID", keytype="SYMBOL")
+
+geneSymbols <- as.character(geneSymbols)
+globalGeneList <- select(Homo.sapiens, keys=geneSymbols, columns=c("ENTREZID"), keytype="SYMBOL")
+
+entrezAll <- as.character(globalGeneList[,"ENTREZID"])
+entrezCMI1 <- cmiGeneList1[,"ENTREZID"]
+entrezSplines1 <- splinesGeneList1[,"ENTREZID"]
+entrezNaif1 <- naifGeneList1[,"ENTREZID"]
+entrezOriginal <- originalGeneList[,"ENTREZID"]
+
+entrezAll <- unique(entrezAll[!is.na(entrezAll)])
+entrezCMI1 <- unique(entrezCMI1 [!is.na(entrezCMI1 )])
+entrezSplines1 <- unique(entrezSplines1[!is.na(entrezSplines1)])
+entrezNaif1 <- unique(entrezNaif1 [!is.na(entrezNaif1)])
+entrezOriginal <- unique(entrezOriginal [!is.na(entrezOriginal)])
+  
+commonNaifOriginal1 <- intersect(entrezNaif1, entrezOriginal)
+commonNaifCMI1 <- intersect(entrezNaif1, entrezCMI1)
+commonOriginalSplines1 <- intersect(entrezOriginal, entrezCMI1)
+commonAll1 <- intersect(intersect(commonNaifCMI1, entrezSplines1), entrezOriginal)
+@
+
+File \texttt{vennPlotsMetSeq.pdf} contains the plots showing the number of common genes between the four lists.
+
+<<plot2Fileb>>=
+pdf(file=file.path(resultsDir, "vennPlotsMetSeq.pdf"))
+require(VennDiagram)
+
+myVenn21 <- venn.diagram(x=list(original=entrezOriginal, NAIF=entrezNaif1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn21);
+grid.newpage()
+myVenn22 <- venn.diagram(x=list(original=entrezOriginal, SPLINES=entrezSplines1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn22);
+grid.newpage()
+myVenn23 <- venn.diagram(x=list(original=entrezOriginal, CMI=entrezCMI1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn23);
+grid.newpage()
+myVenn24 <- venn.diagram(x=list(Naif=entrezNaif1, SPLINES=entrezSplines1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn24);
+grid.newpage()
+myVenn25 <- venn.diagram(x=list(Naif=entrezNaif1, CMI=entrezCMI1),filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn25);
+grid.newpage()
+myVenn26<- venn.diagram(x=list(CMI=entrezCMI1, SPLINES=entrezSplines1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn26);
+grid.newpage()
+myVenn31 <- venn.diagram(x=list(CMI=entrezCMI1, NAIF=entrezNaif1, original=entrezOriginal ), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn31);
+grid.newpage()
+myVenn32<- venn.diagram(x=list(SPLINES=entrezSplines1, NAIF=entrezNaif1, original=entrezOriginal ), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn32);
+grid.newpage()
+myVenn33 <- venn.diagram(x=list(SPLINES=entrezSplines1, NAIF=entrezNaif1, CMI=entrezCMI1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn33);
+grid.newpage()
+myVenn41<- venn.diagram(x=list(CMI=entrezCMI1, SPLINES=entrezSplines1, NAIF=entrezNaif1, original=entrezOriginal ), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid","orange"))
+grid.draw(myVenn41);
+grid.newpage()
+dev.off()
+@
+
+Figure \ref{venn12} shows the genes in common between the four lists.
+
+\begin{figure}
+<<plotVenn1b>>=
+myVenn41<- venn.diagram(x=list(CMI=entrezCMI1, SPLINES=entrezSplines1, NAIF=entrezNaif1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue","mediumorchid"))
+grid.draw(myVenn41)
+@
+\caption{\label{venn12}Putative genes selected by methylation by either of the three methods: CMI, Splines and 'Naif'}
+\end{figure}
+
+After analysing the genes separatedly for the Expression datasets in relation to methylation and for the RNA seq dataset in relation to mthylation, now we would like to have a look at what common genes are found through both analyses. For that matter, we will compare the genelists in pairs, following the earlier structure. We will have 4 comparisons:
+\begin{enumerate}
+\item \texttt{Naif}Comparing genes obtained from the Naif analysis in both datasets
+\item \texttt{CMI} Comparing genes obtained from the CMI analysis in both datasets
+\item \texttt{Splines} Comparing genes obtained from the Splines analysis in both datasets
+\item \texttt{Common} Comparing genes obtained from the lists Naif, CMI and Splines in both datasets
+\end{enumerate}
+
+File \texttt{vennPlotsCommon.pdf} contains the plots showing the number of common genes between the four lists.
+
+<<plot2FileVennCommon>>=
+pdf(file=file.path(resultsDir, "vennPlotsCommon.pdf"))
+require(VennDiagram)
+
+myVennNaif <- venn.diagram(x=list(NAIFexpr=entrezNaif, NAIFseq=entrezNaif1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVennNaif);
+grid.newpage()
+myVennSplines <- venn.diagram(x=list(SPLINESexpr=entrezSplines, SPLINESseq=entrezSplines1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVennSplines);
+grid.newpage()
+myVennCMI <- venn.diagram(x=list(CMIexpr=entrezCMI, CMIseq=entrezCMI1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVennCMI);
+grid.newpage()
+myVenn24 <- venn.diagram(x=list(COMMONexpr=commonAll, COMMONseq=commonAll1), filename=NULL, lty = "blank",  fill=c("pink1", "skyblue"))
+grid.draw(myVenn24);
+
+grid.newpage()
+dev.off()
+@
+
+
+\clearpage
+\begin{thebibliography}{9}
+
+%\addcontentsline{toc}{chapter}{\numberline{}References}
+
+\bibitem{bazzocco:2014} Sarah Bazzocco, Hafid Alazzouzi, M. Carme Ruiz de Villa, Alex Sanchez-Pla, John M. Mariadason, Diego Arango (2013) \emph{Genome-Wide Analysis of DNA Methylation in Colorectal Cancer}. Submitted.
+
+\bibitem{Liu:2012} Yihua Liu and Peng Qiu. (2012) \emph{Integrative analysis of methylation and gene expression data in TCGA} IEEE International Workshop on Genomic Signal Processing and Statistics (GENSIPS)
+
+\bibitem{r-project} R Development Core Team (2005). R: A language and environment for statistical computing,  reference index version 2.14.0. R Foundation for Statistical Computing, Vienna, Austria. ISBN 3-900051-07-0, \\
+  \verb|http://www.R-project.org|
+
+\bibitem{racine:2012} Jeffrey Racine. (2012) A primer on regression splines.\newline
+\verb|http://cran.r-project.org/web/packages/crs/vignettes/spline_primer.pdf|
+
+\end{thebibliography}
+
+\end{document}
