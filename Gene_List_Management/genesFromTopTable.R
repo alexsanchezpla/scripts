@@ -65,14 +65,17 @@ genesFromTopTable <- function (aTopTable,
     if (toupper(substr(id2Select,1,6))=="ENTREZ"){
       geneList <- topTab[,"EntrezsA"]
     }else{
-      if(cols2Select> 0){
+      if(sum(cols2Select)> 0){
         geneList <- topTab[,cols2Select]
       }else{
         geneList <-rownames(topTab)
       }}}
   # length(geneList)
-  if(uniqueIds) geneList <- unique(geneList)
-  return(as.character(geneList))
+  if (length(cols2Select)==1){
+      if(uniqueIds) geneList <- unique(geneList)
+      geneList <- as.character(geneList)
+    }
+  return(geneList)
 }
 
 
