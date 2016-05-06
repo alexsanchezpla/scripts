@@ -23,16 +23,16 @@ genesFromTopTable <- function (aTopTable,
                                Pcutoff = 0.05,
                                FCcutoff = 1,
                                updown = "both", # c("both","up","down")
-                               id2Select = "ENTREZ",  # c("ENTREZ","SYMBOL", "other") 
+                               id2Select = "ENTREZ",  # c("ENTREZ","SYMBOL", NULL) 
                                                       # Alias ("Entrez", "EntrezsA", "Symbols", "SymbolsA") are accepted
-                               cols2Select = 2){
-  
-  if (! is.null(filename)){
-    topTab <- read.csv(file.path(listsDir, filename), head=TRUE, sep=";", dec=",", row.names=1)
-  }else{
-    topTab=aTopTable
-  }
-  if (entrezOnly) {
+                               cols2Select = 0)       # Set cols2Select to a value if no preferred identifier is known
+  {
+    if (! is.null(filename)){
+      topTab <- read.csv(file.path(listsDir, filename), head=TRUE, sep=";", dec=",", row.names=1)
+    }else{
+      topTab=aTopTable
+    }
+    if (entrezOnly) {
     selectedEntrez <- topTab$EntrezsA !="---" # !is.na(topTab[,"EntrezsA"])
     topTab <- topTab[selectedEntrez,]
   }
@@ -59,23 +59,28 @@ genesFromTopTable <- function (aTopTable,
       }
     }
   }
-  if (toupper(substr(id2Select,1,6))=="SYMBOL"){
+  if (!is.null(id2Select)) {
+    if (toupper(substr(id2Select,1,6))=="SYMBOL"){
     geneList <- topTab[,"SymbolsA"]
-  }else{
+   }else{
     if (toupper(substr(id2Select,1,6))=="ENTREZ"){
       geneList <- topTab[,"EntrezsA"]
-    }else{
+      }
+    }
+  }else{
       if(sum(cols2Select)> 0){
         geneList <- topTab[,cols2Select]
       }else{
         geneList <-rownames(topTab)
-      }}}
+      }
+  }
+
   # length(geneList)
-  if (length(cols2Select)==1){
+if (length(cols2Select)==1){
       if(uniqueIds) geneList <- unique(geneList)
       geneList <- as.character(geneList)
-    }
-  return(geneList)
+}
+return(geneList)
 }
 
 
