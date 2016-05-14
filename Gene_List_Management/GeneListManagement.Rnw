@@ -34,7 +34,7 @@ installifnot <- function (packageName){
     install.packages(packageName)
   }else{
     detach(paste ("package", packageName, sep=":"), character.only=TRUE)
-  } 
+  }
 }
 bioCifnot <- function (packageName){
  if (!(require(packageName, character.only=TRUE))) {
@@ -42,11 +42,11 @@ bioCifnot <- function (packageName){
     biocLite(packageName)
  }else{
   detach(paste ("package", packageName, sep=":"), character.only=TRUE)
-  }  
+  }
 }
 installifnot("knitr")
 installifnot("gdata")
-@ 
+@
 
 \section{Introduction}
 
@@ -80,9 +80,11 @@ In practice, and in our work environment most lists will be extracted from the s
 \end{enumerate}
 
 <<getGeneList, message=FALSE>>=
-x1<- AvsB <- read.table(file.path(dataDir, "ExpressAndTop_AvsB.csv2"), head=T, sep=";", dec=",", row.names=1)
-x2<- AvsL <- read.table(file.path(dataDir, "ExpressAndTop_AvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
-x3<- BvsL <- read.table(file.path(dataDir, "ExpressAndTop_BvsL.csv2"), head=T, sep=";", dec=",", row.names=1)
+AvsB <- read.table("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Gene_List_Management/dades/ExpressAndTop_AvsB.csv2", head=T, sep=";", dec=",", row.names=1)
+
+AvsL <- read.table("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Gene_List_Management/dades/ExpressAndTop_AvsL.csv2", head=T, sep=";", dec=",", row.names=1)
+
+BvsL <- read.table("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Gene_List_Management/dades/ExpressAndTop_BvsL.csv2", head=T, sep=";", dec=",", row.names=1)
 
 dim(x1);
 cat("\nHeader of top Table for comparison AvsB\n")
@@ -114,25 +116,25 @@ source("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/usefulFu
 
 We can use the available functions to extract only the gene lists
 <<geneListsOnly>>=
-geneList1  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
-                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, 
+geneList1  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE,
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75,
                                  id2Select = "SymbolsA" , cols2Select =3)
 length(geneList1)
-geneList1Up  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
+geneList1Up  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE,
                                  adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, updown="up",
                                  id2Select = "EntrezsA" , cols2Select =3)
 length(geneList1Up)
-geneList1Down  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE, 
+geneList1Down  <- genesFromTopTable (x1, entrezOnly = TRUE, uniqueIds=TRUE,
                                  adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, updown="down",
                                  id2Select = "EntrezsA" , cols2Select =3)
 length(geneList1Down)
 
-geneList2 <- genesFromTopTable (x2, entrezOnly = TRUE, uniqueIds=TRUE, 
-                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, 
+geneList2 <- genesFromTopTable (x2, entrezOnly = TRUE, uniqueIds=TRUE,
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75,
                                  id2Select = "EntrezsA" , cols2Select =3)
 
-geneList3 <- genesFromTopTable (x3, entrezOnly = TRUE, uniqueIds=TRUE, 
-                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75, 
+geneList3 <- genesFromTopTable (x3, entrezOnly = TRUE, uniqueIds=TRUE,
+                                 adjOrrawP = "adj", Pcutoff = 0.1, FCcutoff = .75,
                                  id2Select = "EntrezsA" , cols2Select =3)
 
 @
@@ -140,19 +142,19 @@ geneList3 <- genesFromTopTable (x3, entrezOnly = TRUE, uniqueIds=TRUE,
 Another possibility is to use function \texttt{extractInfo} do a ``batch extraction''
 
 <<geneListsAndMore>>=
-List1 <- extractInfo(x1, "AvsB", "A|B", resultsDir, adjOrraw="adj", 
-                     pCutOff=0.1, fcCutoff=.75); 
-universeList1 <-List1[[2]]; geneList1<- List1[[1]]; 
+List1 <- extractInfo(x1, "AvsB", "A|B", resultsDir, adjOrraw="adj",
+                     pCutOff=0.1, fcCutoff=.75);
+universeList1 <-List1[[2]]; geneList1<- List1[[1]];
 
 
 cat("\nNumber of genes selectable (AvsB) with adjusted p-value < 0.1 and logFC > 0.75", length(geneList1))
 
-List2 <- extractInfo(x2, "AvsL", "A|L", resultsDir, adjOrraw="adj", pCutOff=0.1, fcCutoff=.75); 
-universeList2 <-List2[[2]]; geneList2<- List2[[1]]; 
+List2 <- extractInfo(x2, "AvsL", "A|L", resultsDir, adjOrraw="adj", pCutOff=0.1, fcCutoff=.75);
+universeList2 <-List2[[2]]; geneList2<- List2[[1]];
 cat("\nNumber of genes selectable (AvsL) with adjusted p-value < 0.1 and logFC > 0.75", length(geneList2))
 
-List3 <- extractInfo(x3, "BvsL", "B|L", resultsDir, adjOrraw="adj", pCutOff=0.1, fcCutoff=.75); 
-universeList3 <-List3[[2]]; geneList3<- List3[[1]]; 
+List3 <- extractInfo(x3, "BvsL", "B|L", resultsDir, adjOrraw="adj", pCutOff=0.1, fcCutoff=.75);
+universeList3 <-List3[[2]]; geneList3<- List3[[1]];
 cat("\nNumber of genes selectable (BvsL) with adjusted p-value < 0.1 and logFC > 0.75", length(geneList3))
 
 
@@ -169,7 +171,7 @@ require(VennDiagram)
 vd2<- venn.diagram(list(AvsB=geneList1, AvsL=geneList2,  BvsL=geneList3), filename=NULL)
 grid.draw(vd2)
 dev.off()
-@ 
+@
 
 \section{Case study}
 

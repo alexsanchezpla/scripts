@@ -5,18 +5,20 @@ if (!require("devtools")) install.packages("devtools", dep=TRUE)
 if (!require("roxygen2")) install.packages("roxygen2", dep=TRUE)
 
 require(devtools)
-require("roxygen2")
+require(roxygen2)
 SO <- version[["os"]]
 if (SO=="linux-gnu")
 {pkgDir <- "~/Dropbox (VHIR)/Scripts/Rpackages"
 }else{
-  pkgDir <- "E:/Dropbox (VHIR)/Scripts/Rpackages"
+  pkgDir <- "C:/users/ALexandre/Dropbox (VHIR)/Scripts/Rpackages"
 }
 
 setwd(pkgDir)
-create("links2File")
+packgName <-"geneLists"
+# Per crear el paquet
+# create(packgName)
 
-# agregar funciones a carpeta "R" 
+# agregar funciones a carpeta "R"
 
 #' A Cat Function
 #'
@@ -27,20 +29,18 @@ create("links2File")
 #' @examples
 #' cat_function()
 
-# procesar documento 
-setwd(file.path(pkgDir, "links2File"))
-document()
+# procesar documents a partir de plantilles
+# setwd(file.path(pkgDir, packgName))
+# document()
 
 # Opcional: Si se quiere crear una vinyeta
-# use_vignette("avignette") En linux no funciona. Pot ser pels caràcters?
+# use_vignette("avignette") # En linux no funciona. Pot ser pels caràcters?
 
-
-check()
-# per instalar 
+# per instalar
 setwd(pkgDir)
-install("links2File")  # desde local
+install(packgName)  # desde local
 
 
-install_github('alexsanchezpla/scripts/Rpackages/links2File') # desde github
-require(links2File)
-?links2File
+install_github(paste('alexsanchezpla/scripts/Rpackages/', packgName, sep="")) # desde github
+require(packgName)
+?pckgName

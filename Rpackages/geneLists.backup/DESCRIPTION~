@@ -1,0 +1,9 @@
+Package: geneLists
+Title: Extracts (sub)vectors or (sub)matrices from a yopTable applying user-defined filters.
+Version: 0.0.0.9000
+Authors@R: person("Alex", "Sanchez", email = "asanchez@ub.edu", role = c("aut", "cre"))
+Description: Extracts (sub)vectors or (sub)matrices from a yopTable applying user-defined filters.
+Depends: R (>= 3.3.0)
+License: >GPL-2
+Encoding: UTF-8
+LazyData: true

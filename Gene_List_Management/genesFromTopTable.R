@@ -1,20 +1,23 @@
 #' Extract a list (a character vector indeed) of genes from a topTable outputted by the limma software
-#' @param aTopTable
-#' @param filename
-#' @param entrezOnly
-#' @param uniqueIds
-#' @param adjOrrawP
-#' @param Pcutoff
-#' @param FCcutoff
-#' @param updown
-#' @param id2select
-#' @param cols2select
-#' @keywords
-#' @seealso
+#' @param aTopTable A top table file such as produced by the limma package or the UEB pipeline
+#' @param filename Name of the file that contains the topTable (to be used if the topTable is not in memory yet)
+#' @param entrezOnly To decide if only lines with a meaningful entrez symbol should be retained. Defaults to TRUE.
+#' @param uniqueIds To decide if duplicate identifiers should be removed after the selection defined by other parameters. Defaults to TRUE.
+#' @param adjOrrawP To decide if filtering is based on raw or adjusted p-values. Defaults to 'adj'.
+#' @param Pcutoff The filtering cutoff for p-values (if these are raw or adjusted is set by 'adjorRaw' parameter). 
+#' @param FCcutoff The filtering cutoff for fold change.
+#' @param updown To decide which values to retain : up-regulated (FoldC >0 ), downregulated (FoldC < 0) or both. Defaults to 'both'.
+#' @param id2select To decide which identifiers are to be selected. Defaults to 'ENTREZ'.
+#' @param cols2select To decide which (and how many) columns are to be selected. It is used ony when 'id2select' is set to NULL. This parameter is dangerous because if more than 2 columns are selected the output is not a character vector and cannot be used as such.
+#' @keywords genelists, filtering
+#' @seealso limma
 #' @export
 #' @examples
-#'
-
+#' topTab <- read.table("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Gene_List_Management/dades/ExpressAndTop_AvsB.csv2", head=T, sep=";", dec=",", row.names=1)
+#' entrezs_01_up  <- genesFromTopTable (topTab, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = "ENTREZ", FCcutoff=1, cols2Select =0) 
+#' length(entrezs_01_up)
+#' table_01_up  <- genesFromTopTable (topTab, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = NULL, FCcutoff=1, cols2Select =1:3) 
+#' dim(table_01_up)
 genesFromTopTable <- function (aTopTable,
                                filename=NULL, 
                                entrezOnly = TRUE, 
