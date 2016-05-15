@@ -1,5 +1,5 @@
 Package: geneLists
-Title: Extracts (sub)vectors or (sub)matrices from a yopTable applying user-
+Title: Extracts (sub)vectors or (sub)matrices from a limma "Top-table" applying user-
     defined filters.
 Version: 0.1
 Authors@R: person("Alex", "Sanchez", email = "asanchez@ub.edu", role = c("aut", "cre"))

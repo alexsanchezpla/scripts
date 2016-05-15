@@ -5,8 +5,8 @@
 #' @seealso limma
 #' @export
 #' @examples
-#' fileName<- system.file("extdata", "AvsB.csv2", package = "geneLists")
-#' AvsB <- read.table(fileName, head=T, sep=";", dec=",", row.names=1)
+#' fileName<- system.file("extdata", "ExpressAndTop_AvsB.csv2", package = "geneLists")
+#' AvsB <- read.table(fileName, head=TRUE, sep=";", dec=",", row.names=1)
 #' genesChanged <- numGenesChanged (AvsB, "Group A vs group B")
   numGenesChanged <- function (TT, cName="comparison"){
     Bup   <- sum(TT$t>0 & TT$B >0 )

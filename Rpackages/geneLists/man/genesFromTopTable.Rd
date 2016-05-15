@@ -33,11 +33,11 @@ genesFromTopTable(aTopTable, filename = NULL, entrezOnly = TRUE,
 Extract a list (a character vector indeed) of genes from a topTable outputted by the limma software
 }
 \examples{
-fileName<- system.file("extdata", "AvsB.csv2", package = "geneLists")
-AvsB <- read.table(fileName, head=T, sep=";", dec=",", row.names=1)
-entrezs_01_up  <- genesFromTopTable (topTab, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = "ENTREZ", FCcutoff=1, cols2Select =0) 
+fileName<- system.file("extdata", "ExpressAndTop_AvsB.csv2", package = "geneLists")
+AvsB <- read.table(fileName, head=TRUE, sep=";", dec=",", row.names=1)
+entrezs_01_up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = "ENTREZ", FCcutoff=1, cols2Select =0) 
 length(entrezs_01_up)
-table_01_up  <- genesFromTopTable (topTab, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = NULL, FCcutoff=1, cols2Select =1:3) 
+table_01_up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = NULL, FCcutoff=1, cols2Select =1:3) 
 dim(table_01_up)
 }
 \seealso{

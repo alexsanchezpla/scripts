@@ -15,8 +15,8 @@ numGenesChanged(TT, cName = "comparison")
 Given a limma-outputted topTable (TT) it returns the number of up or down regulated genes that woud be returned if the cutoff was set at different values.
 }
 \examples{
-fileName<- system.file("extdata", "AvsB.csv2", package = "geneLists")
-AvsB <- read.table(fileName, head=T, sep=";", dec=",", row.names=1)
+fileName<- system.file("extdata", "ExpressAndTop_AvsB.csv2", package = "geneLists")
+AvsB <- read.table(fileName, head=TRUE, sep=";", dec=",", row.names=1)
 genesChanged <- numGenesChanged (AvsB, "Group A vs group B")
 }
 \seealso{

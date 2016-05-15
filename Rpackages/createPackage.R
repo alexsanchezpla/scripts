@@ -36,18 +36,39 @@ hello <- function(fname, lname) {
   cat(paste("Hello",fname,lname,"!"))
 }
 
+# Si tenim dades i les volem documentar podem fer-ho posant en la carpeta "R" un arxiu ".R" amb un text com:
+#' This is data to be included in my package
+#'
+#' @author My Name \email{blahblah@@roxygen.org}
+#' @references \url{data_blah.com}
+"data-name"
+
+# Veure també: http://stackoverflow.com/questions/2310409/how-can-i-document-data-sets-with-roxygen
+
 # A partir de l'anterior es crearà la plantilla pel paquet
 setwd(file.path(pkgDir, packgName))
-# document()
+document()
 
 # Opcional: Si se quiere crear una vinyeta
 # use_vignette("avignette") 
 
+# per comprovar si funciona fem: 
+setwd(file.path(pkgDir, packgName))
+check()
+
 # per instalar
 setwd(pkgDir)
 install(packgName)  # desde local
-check()
 
+# per posar-lo a github actualitzat
+# des d'una consola del sistema (linux) o de git (windows)fer:
+# cd Dropbox\ \(VHIR\)/Scripts
+# git add . -A
+# git commit -m "Missatge"
+# git push -u origin master
+
+# A partir d'això podem instal·lar-lo en qualsevol ordinador amb la instrucció 'install_github'
+require(devtools)
 install_github(paste('alexsanchezpla/scripts/Rpackages/', packgName, sep="")) # desde github
-require(packgName)
-?pckgName
+require(packgName, character.only=TRUE)
+
