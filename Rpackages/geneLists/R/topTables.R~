@@ -1,0 +1,16 @@
+\name{topTables}
+\alias{topTables}
+\docType{data}
+\title{Top Tables}
+\description{Three topTables obtained from the analysis of one datasets on which three comparisons have been performed \code{AvsB}, \code{AvsL} and \code{BvsL}. Used by \code{genesFromTopTable}.}
+\usage{data("topTables")}
+\format{
+  Three top tables.
+}
+\details{The top tables are obtained by combining the standard limma output with gene identifiers and expression values.}
+\examples{
+data(topTables)
+head(AvsB)
+}
+\seealso{limma}
+\keyword{datasets}

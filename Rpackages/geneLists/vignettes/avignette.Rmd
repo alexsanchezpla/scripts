@@ -27,25 +27,36 @@ Although some type of analyses require only the gene identifiers other need also
 The simplest way to get the data is to load into an R object.
 
 ```{r loadData}
-data(topTables)
+fileName<- system.file("extdata", "topTables.Rda", package = "geneLists")
+load(fileName)
 class(AvsB)
 colnames(AvsB)
 head(AvsB[,1:7])
 ```
+
+## How many genes
+
+The function `numGenesChanged` allows one to make an idea of how many genes will be recovered based on a p-value filtering criteria. It is a good idea to start with this function to explore the topTables that will be subsetted. This may help the appropriate filters.
+
+```{r}
+require(geneLists)
+cbind(numGenesChanged(AvsB, "AvsB"), numGenesChanged(AvsL, "AvsL"), numGenesChanged(BvsL, "BvsL")) 
+```
+
 
 ## Filtering genes
 
 The functions available in the package allow to extract simple gene lists.
 
 ```{r filter1}
-#' entrezs_01_up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = "ENTREZ", FCcutoff=1, cols2Select =0) 
-#' length(entrezs_01_up)
+entrezs_01_up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = "ENTREZ", FCcutoff=1, cols2Select =0) 
+length(entrezs_01_up)
 ```
 
 ALternatively one can extract a subtable consisting of several columns from the original table
 ```{r filter2}
-#' table_01_up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = NULL, FCcutoff=1, cols2Select =1:3) 
-#' dim(table_01_up)
+table_01_up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = NULL, FCcutoff=1, cols2Select =1:3) 
+dim(table_01_up)
 ```
 
 

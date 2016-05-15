@@ -1,4 +1,12 @@
-
+#' Given a limma-outputted topTable (TT) it returns the number of up or down regulated genes that woud be returned if the cutoff was set at different values.
+#' @param TT A top table object such as produced by the limma package or the UEB pipeline.
+#' @param cName Name to the comparison that produced the top Table. Defaults to "comparison".
+#' @keywords genelists, filtering
+#' @seealso limma
+#' @export
+#' @examples
+#' AvsB <- read.table("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Gene_List_Management/dades/ExpressAndTop_AvsB.csv2", head=T, sep=";", dec=",", row.names=1)
+#' genesChanged <- numGenesChanged (AvsB, "Group A vs group B")
   numGenesChanged <- function (TT, cName="comparison"){
     Bup   <- sum(TT$t>0 & TT$B >0 )
     Bdown <- sum(TT$t <=0 & TT$B >0 )

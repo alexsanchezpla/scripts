@@ -13,7 +13,8 @@
 #' @seealso limma
 #' @export
 #' @examples
-#' topTab <- read.table("https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Gene_List_Management/dades/ExpressAndTop_AvsB.csv2", head=T, sep=";", dec=",", row.names=1)
+#' fileName<- system.file("extdata", "AvsB.csv2", package = "geneLists")
+#' AvsB <- read.table(fileName, head=T, sep=";", dec=",", row.names=1)
 #' entrezs_01_up  <- genesFromTopTable (topTab, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = "ENTREZ", FCcutoff=1, cols2Select =0) 
 #' length(entrezs_01_up)
 #' table_01_up  <- genesFromTopTable (topTab, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.01, updown="up", id2Select = NULL, FCcutoff=1, cols2Select =1:3) 

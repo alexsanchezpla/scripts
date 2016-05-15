@@ -1,5 +1,6 @@
 # http://hilaryparker.com/2014/04/29/writing-an-r-package-from-scratch/
 # http://r-pkgs.had.co.nz/git.html
+# http://kbroman.org/github_tutorial/pages/routine.html
 
 if (!require("devtools")) install.packages("devtools", dep=TRUE)
 if (!require("roxygen2")) install.packages("roxygen2", dep=TRUE)
@@ -15,31 +16,37 @@ if (SO=="linux-gnu")
 
 setwd(pkgDir)
 packgName <-"geneLists"
-# Per crear el paquet
+
+# Per crear el paquet fer servir la instrucció de devtools
 # create(packgName)
 
-# agregar funciones a carpeta "R"
+# Cal que al menys hi hagi una funció a la carpeta "R" escrita en format "roxygen". Per exemple:
 
-#' A Cat Function
+#' Print hello
 #'
-#' This function allows you to express your love of cats.
-#' @param love Do you love cats? Defaults to TRUE.
-#' @keywords cats
+#' This function prints hello 
+#'
+#' @param fname First name
+#' @param lname Last name
 #' @export
 #' @examples
-#' cat_function()
+#' hello(fname="Tomas",lname="Greif")
+#' hello(fname="Your",lname="Name")
+hello <- function(fname, lname) {
+  cat(paste("Hello",fname,lname,"!"))
+}
 
-# procesar documents a partir de plantilles
-# setwd(file.path(pkgDir, packgName))
+# A partir de l'anterior es crearà la plantilla pel paquet
+setwd(file.path(pkgDir, packgName))
 # document()
 
 # Opcional: Si se quiere crear una vinyeta
-# use_vignette("avignette") # En linux no funciona. Pot ser pels caràcters?
+# use_vignette("avignette") 
 
 # per instalar
 setwd(pkgDir)
 install(packgName)  # desde local
-
+check()
 
 install_github(paste('alexsanchezpla/scripts/Rpackages/', packgName, sep="")) # desde github
 require(packgName)
