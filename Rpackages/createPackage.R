@@ -49,7 +49,8 @@ hello <- function(fname, lname) {
 setwd(file.path(pkgDir, packgName))
 document()
 
-# Opcional: Si se quiere crear una vinyeta
+# Opcional: Si es vol crear una vinyeta es pot generar la plantilla fent:
+# Si un cop creada el tornem a invocar ens donara error, es a dir nomes s'ha de fer un cop
 # use_vignette("avignette") 
 
 # per comprovar si funciona fem: 

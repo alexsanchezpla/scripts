@@ -8,7 +8,7 @@
 #' fileName<- system.file("extdata", "ExpressAndTop_AvsB.csv2", package = "geneLists")
 #' AvsB <- read.table(fileName, head=TRUE, sep=";", dec=",", row.names=1)
 #' genesChanged <- numGenesChanged (AvsB, "Group A vs group B")
-numGenesChanged <- function (TT, cName="comparison"){
+  numGenesChanged <- function (TT, cName="comparison"){
     Bup   <- sum(TT$t>0 & TT$B >0 )
     Bdown <- sum(TT$t <=0 & TT$B >0 )
     adjP001Up <- sum(TT$t>0 & TT$adj.P.Val < 0.01 )
@@ -33,4 +33,4 @@ numGenesChanged <- function (TT, cName="comparison"){
     rownames(nGenes)   <-rowNames
     colnames(nGenes)[1] <- cName
     return(nGenes)
-}
+  }

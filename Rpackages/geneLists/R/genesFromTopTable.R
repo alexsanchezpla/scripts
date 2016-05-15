@@ -78,8 +78,6 @@ genesFromTopTable <- function (aTopTable,
         geneList <-rownames(topTab)
       }
   }
-
-  # length(geneList)
 if (length(cols2Select)==1){
       if(uniqueIds) geneList <- unique(geneList)
       geneList <- as.character(geneList)
