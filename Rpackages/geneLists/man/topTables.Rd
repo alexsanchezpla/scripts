@@ -5,9 +5,6 @@
 \alias{topTables}
 \title{Three top Tables to be used in the examples}
 \format{Three dataframes containing a mix of topTables, identifiers and expression values}
-\usage{
-data(topTables)
-}
 \description{
 Three toptables obtained from a microarray analysis described (in Spanish) at:
 https://github.com/alexsanchezpla/scripts/blob/master/Exemple_Analisis_BioC/EjemploAnalisisMicroarrays.pdf
@@ -18,6 +15,7 @@ The original analysis is a comparison between three types of breast cancer tumou
   \item A vs L which yields the AvsL top table
   \item B vs L which yields the BvsL top table
 }
+In the current version
 }
 \keyword{datasets}
 

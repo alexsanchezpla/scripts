@@ -9,10 +9,9 @@
 #'   \item A vs L which yields the AvsL top table
 #'   \item B vs L which yields the BvsL top table
 #' }
-#'
+#' In the current version
 #' @docType data
 #' @keywords datasets
 #' @name topTables
-#' @usage data(topTables)
 #' @format Three dataframes containing a mix of topTables, identifiers and expression values
 NULL

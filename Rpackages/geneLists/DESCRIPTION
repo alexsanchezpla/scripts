@@ -1,13 +1,13 @@
 Package: geneLists
 Title: Extracts (sub)vectors or (sub)matrices from a limma "Top-table" applying user-
-    defined filters.
+    defined filters
 Version: 0.1
 Authors@R: person("Alex", "Sanchez", email = "asanchez@ub.edu", role = c("aut", "cre"))
 Description: Extracts (sub)vectors or (sub)matrices from a limma "Top table" applying
     user-defined filters.
 Depends:
     R (>= 3.2.0)
-License: >GPL-2
+License: GPL (>=2)
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 5.0.1

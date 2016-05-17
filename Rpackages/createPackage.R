@@ -24,7 +24,7 @@ packgName <-"geneLists"
 
 #' Print hello
 #'
-#' This function prints hello 
+#' This function prints hello
 #'
 #' @param fname First name
 #' @param lname Last name
@@ -42,6 +42,7 @@ hello <- function(fname, lname) {
 #' @author My Name \email{blahblah@@roxygen.org}
 #' @references \url{data_blah.com}
 "data-name"
+# devtools::use_data(AvsB, geneLists, overwrite = TRUE)
 
 # Veure també: http://stackoverflow.com/questions/2310409/how-can-i-document-data-sets-with-roxygen
 
@@ -51,9 +52,9 @@ document()
 
 # Opcional: Si es vol crear una vinyeta es pot generar la plantilla fent:
 # Si un cop creada el tornem a invocar ens donara error, es a dir nomes s'ha de fer un cop
-# use_vignette("avignette") 
+# use_vignette("avignette")
 
-# per comprovar si funciona fem: 
+# per comprovar si funciona fem:
 setwd(file.path(pkgDir, packgName))
 check()
 
