@@ -59,4 +59,49 @@ table_01_up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjO
 dim(table_01_up)
 ```
 
+## A case study
+
+A typical situation for a user of this package may consist of some or all the following actions:
+
+* Select three lists from a study (In this example we choose `AvsB`, `AvsL`, `BvsL`). 
+* We can do a preliminar optional filtering to keep only genes with `Entrez` identifier and remove duplicates keeping only the most variable one.
+```{r prefilter}
+AvsB0  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 1)
+AvsL0  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 1)
+BvsL0  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 1)
+```
+* Filter lists with adjusted-p-value less than 0.05
+```{r filterByAdjPval}
+AvsB1  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05)
+AvsL1  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05)
+BvsL1  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05)
+
+cat("AvsB: ", length(AvsB0), "-->", length(AvsB1), "\n")
+cat("AvsL: ", length(AvsL0), "-->", length(AvsL1), "\n")
+cat("BvsL: ", length(BvsL0), "-->", length(BvsL1), "\n")
+```
+* Create separate lists with up and down regulated genes
+```{r filterByUpDown}
+AvsB1Up  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="up")
+AvsL1Up  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="up")
+BvsL1Up  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="up")
+
+cat("AvsB: ", length(AvsB1), "-->", length(AvsB1Up), "\n")
+cat("AvsL: ", length(AvsL1), "-->", length(AvsL1Up), "\n")
+cat("BvsL: ", length(BvsL1), "-->", length(BvsL1Up), "\n")
+
+AvsB1Down  <- genesFromTopTable (AvsB, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="down")
+AvsL1Down  <- genesFromTopTable (AvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="down")
+BvsL1Down  <- genesFromTopTable (BvsL, entrezOnly = TRUE, uniqueIds=TRUE, adjOrrawP = "adj", Pcutoff = 0.05, updown="down")
+
+cat("AvsB: ", length(AvsB1), "-->", length(AvsB1Down), "\n")
+cat("AvsL: ", length(AvsL1), "-->", length(AvsL1Down), "\n")
+cat("BvsL: ", length(BvsL1), "-->", length(BvsL1Down), "\n")
+```
+
+* Create a gene list with genes shared by AvsL and BvsL
+```{r commonGenes}
+commonAvsLandBvsL <- intersect(AvsL0, BvsL0)
+length(commonAvsLandBvsL)
+```
 
