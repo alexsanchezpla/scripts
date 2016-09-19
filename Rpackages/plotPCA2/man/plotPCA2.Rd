@@ -23,10 +23,6 @@ plotPCA2(X, labels = NULL, colors = NULL, dataDesc = "", scale = FALSE,
 \description{
 Representant PCAs
 }
-\examples{
-data(USArrests)
-plotPCA2 (X=USArrests, scale=TRUE, transpose=FALSE, dataDesc="Arrestos en EUA",  labels=rownames(USArrests))
-}
 \keyword{Multivariate,}
 \keyword{Plots}
 

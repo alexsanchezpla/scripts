@@ -6,11 +6,8 @@
 #' @param dataDesc Breu descripcio de les dades per al titol
 #' @param scale Variable logica per decidir si s'escalen les dades
 #' @param transpose Variable logica per decidir si es vol fer el PCA de la matriu original o de la seva trasposta
+#' @export plotPCA2
 #' @keywords Multivariate, Plots
-#' @examples
-#' data(USArrests)
-#' plotPCA2 (X=USArrests, scale=TRUE, transpose=FALSE, dataDesc="Arrestos en EUA",  labels=rownames(USArrests))
-
 
 plotPCA2 <- function ( X, labels=NULL, colors=NULL, dataDesc="", scale=FALSE, transpose=FALSE)
 {

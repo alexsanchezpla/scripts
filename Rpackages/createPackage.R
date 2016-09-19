@@ -15,7 +15,7 @@ if (SO=="linux-gnu")
 }
 
 setwd(pkgDir)
-packgName <-"plotPCA"
+packgName <-"plotPCA2"
 
 # Per crear el paquet fer servir la instrucció de devtools
 # create(packgName)
