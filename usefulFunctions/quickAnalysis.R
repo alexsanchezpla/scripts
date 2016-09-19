@@ -1,7 +1,7 @@
 quickAnalysis <- function ( expres, groupingVar, maxGenes=250, 
                             aTitle="", aFName="Results", 
                             outputDir=".", outputFType="xls",
-                            pvalThreshold=0.05, useAdjP=TRUE,
+                            pvalThreshold=1, useAdjP=TRUE,
                             plotSelected = TRUE,
                             groupNames =NULL)
 {
@@ -55,7 +55,7 @@ quickAnalysis <- function ( expres, groupingVar, maxGenes=250,
   cat (paste ("Number of genes selected by both test (p <0.05)          : ",
                 length(intersect(gNames.multtest,gNames.limma)),sep=""), "\n")
   
-  cat (paste("ANALYIS:",aTitle , "... PROCESS COMPLETED",sep=" "), "\n")
+  cat (paste("ANALYIS:", "... PROCESS COMPLETED",sep=" "), "\n")
 
   if (outputFType=="xls") {
     xlsFName<- file.path(outputDir,paste(aFName, "xls", sep="."))
@@ -80,7 +80,7 @@ quickAnalysis <- function ( expres, groupingVar, maxGenes=250,
                     ", p-val=", round(top.Diff.common$P.Value[i],6),
                     ", Adj-p=", round(top.Diff.common$adj.P.Val[i],6), sep="")
       beeswarm(myExpres[i,]~lev, 
-               ylab="Expression", xlab=varDescript,
+               ylab="Expression", xlab="Groups",
                main=paste(selectedGenes[i],desc, sep="\n"),
                labels=groupNames)  
       boxplot(myExpres[i,]~lev, add = T, names = c("",""), col="#0000ff22")
