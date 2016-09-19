@@ -48,25 +48,28 @@ quickAnalysis <- function ( expres, groupingVar, maxGenes=250,
   top.Diff.common <- top.Diff.all[selectedGenes, ]
   resT.common <- resT[selectedGenes, ]
   
-  cat (paste("\nNumber of genes selected using permutations test (p <0.05): ", 
+  cat (paste("\nNumber of genes selected using permutations test (p <",pvalThreshold,"): ", 
                nrow(resT.selected),sep=""), "\n")
-  cat (paste("Number of genes selected using linear model test (p <0.05): ",
+  cat (paste("Number of genes selected using linear model test (p <",pvalThreshold,"): ",
                nrow(top.Diff),sep=""), "\n")
-  cat (paste ("Number of genes selected by both test (p <0.05)          : ",
+  cat (paste ("Number of genes selected by both test (p <",pvalThreshold,")          : ",
                 length(intersect(gNames.multtest,gNames.limma)),sep=""), "\n")
   
-  cat (paste("ANALYIS:", "... PROCESS COMPLETED",sep=" "), "\n")
+  cat (paste("ANALYIS:", "... PROCESS COMPLETED", sep=" "), "\n")
 
   if (outputFType=="xls") {
     xlsFName<- file.path(outputDir,paste(aFName, "xls", sep="."))
     write.xlsx(resT.selected, file=xlsFName, sheetName = "multtest")
     write.xlsx(top.Diff, file=xlsFName, append=TRUE, sheetName = "limma")
+    cat (paste("RESULTS are in file",xlsFName, sep=" "), "\n")
   }else{
     aFName1 <- file.path(outputDir,paste(aFName, "multtest","html", sep="."))
     hwrite (resT.selected, page =aFName1)
-    aFName1<- file.path(outputDir,paste(aFName, "limma","html", sep="."))
-    hwrite (top.Diff, page= aFName1)
+    aFName2<- file.path(outputDir,paste(aFName, "limma","html", sep="."))
+    hwrite (top.Diff, page= aFName2)
+    cat (paste("RESULTS are in file",aFName1, aFName2, sep=" "), "\n")
   }
+  
   
   if (plotSelected && (length(selectedGenes) >0)){
     plotsFName<- file.path(outputDir,paste(aFName,"Plots", "pdf", sep="."))
@@ -87,6 +90,7 @@ quickAnalysis <- function ( expres, groupingVar, maxGenes=250,
       # Segons un post de: https://www.r-statistics.com/2011/03/beeswarm-boxplot-and-plotting-it-with-r/
     }
     dev.off()
+    cat (paste("PLOTS are in file", plotsFName, sep=" "), "\n")
   }  
   return(list(genes=selectedGenes, 
               resT = resT.selected,
