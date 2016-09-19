@@ -9,10 +9,10 @@
 #' @keywords Multivariate, Plots
 #' @examples
 #' data(USArrests)
-#' plotPCA (X=USArrests, scale=TRUE, transpose=TRUE, dataDesc="Arrestos en EUA",  labels=rownames(USArrests))
-#' plotPCA()
+#' plotPCA2 (X=USArrests, scale=TRUE, transpose=FALSE, dataDesc="Arrestos en EUA",  labels=rownames(USArrests))
 
-plotPCA <- function ( X, labels=NULL, colors=NULL, dataDesc="", scale=FALSE, transpose=FALSE)
+
+plotPCA2 <- function ( X, labels=NULL, colors=NULL, dataDesc="", scale=FALSE, transpose=FALSE)
 {
   if (transpose) X <- t(X)
   pcX<-prcomp(X, scale=scale)
