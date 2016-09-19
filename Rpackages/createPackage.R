@@ -15,7 +15,7 @@ if (SO=="linux-gnu")
 }
 
 setwd(pkgDir)
-packgName <-"geneLists"
+packgName <-"plotPCA"
 
 # Per crear el paquet fer servir la instrucció de devtools
 # create(packgName)

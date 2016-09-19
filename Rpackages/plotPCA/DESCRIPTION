@@ -1,0 +1,12 @@
+Package: plotPCA
+Title: Un paquet per fer un PCA i representar-lo en 2D
+Version: 0.1.1
+Author: Alex Sanchez
+Maintainer: Alex Sanchez <asanchez@ub.edu>
+Description: Un paquet per fer un PCA i representar-lo en 2D
+Depends:
+    R (>= 3.3.1)
+License: GPL 2
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 5.0.1
