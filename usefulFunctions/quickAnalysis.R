@@ -1,7 +1,9 @@
 quickAnalysis <- function ( expres, groupingVar, maxGenes=250, 
-                          aTitle="", aFName="Results", 
-                          outputDir=".", outputFType="xls",
-                          pvalThreshold=0.05, useAdjP=TRUE)
+                            aTitle="", aFName="Results", 
+                            outputDir=".", outputFType="xls",
+                            pvalThreshold=0.05, useAdjP=TRUE,
+                            plotSelected = TRUE,
+                            groupNames =NULL)
 {
   print(paste("ANALYIS:",aTitle,"...PROCESS STARTED",sep=" "))
   ### Packages needed in both analysis
@@ -41,7 +43,10 @@ quickAnalysis <- function ( expres, groupingVar, maxGenes=250,
   }
   
   gNames.limma <-rownames(top.Diff)
-  selectedGenes <-union(gNames.multtest,gNames.limma)
+  selectedGenes <-union(gNames.multtest, gNames.limma)
+  
+  top.Diff.common <- top.Diff.all[selectedGenes, ]
+  resT.common <- resT[selectedGenes, ]
   
   cat (paste("\nNumber of genes selected using permutations test (p <0.05): ", 
                nrow(resT.selected),sep=""), "\n")
@@ -63,6 +68,26 @@ quickAnalysis <- function ( expres, groupingVar, maxGenes=250,
     hwrite (top.Diff, page= aFName1)
   }
   
+  if (plotSelected && (length(selectedGenes) >0)){
+    plotsFName<- file.path(outputDir,paste(aFName,"Plots", "pdf", sep="."))
+    pdf(file.path(outputDir, plotsFName))
+    myExpres <- as.matrix(expres[selectedGenes, ])
+    lev <- as.factor(groupingVar)
+    varName <- "Gene Expression"
+    if (is.null(groupNames)) groupNames <- unique(groupingVar)
+    for (i in 1:nrow(myExpres)){
+      desc <- paste("logFC=", round(top.Diff.common$logFC[i],3), 
+                    ", p-val=", round(top.Diff.common$P.Value[i],6),
+                    ", Adj-p=", round(top.Diff.common$adj.P.Val[i],6), sep="")
+      beeswarm(myExpres[i,]~lev, 
+               ylab="Expression", xlab=varDescript,
+               main=paste(selectedGenes[i],desc, sep="\n"),
+               labels=groupNames)  
+      boxplot(myExpres[i,]~lev, add = T, names = c("",""), col="#0000ff22")
+      # Segons un post de: https://www.r-statistics.com/2011/03/beeswarm-boxplot-and-plotting-it-with-r/
+    }
+    dev.off()
+  }  
   return(list(genes=selectedGenes, 
               resT = resT.selected,
               topTable = top.Diff.all 
@@ -70,9 +95,11 @@ quickAnalysis <- function ( expres, groupingVar, maxGenes=250,
          )
 }
 
+
+
 ### Exemple
 
-testQuickAnalysis <- function()
+testQuickAnalysis <- function(){
   fName<- "https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/results/AvsB.Expres.csv"
   expresAndTopAvsB <- read.table (fName, head=T, sep=",", dec=".", row.names=1)
   expresAvsB <- expresAndTopAvsB [,5:14] 
@@ -85,6 +112,7 @@ testQuickAnalysis <- function()
   stopifnot(require(multtest))
   stopifnot(require(hwriter))
   stopifnot(require(xlsx))
+  stopifnot(require(beeswarm))
 
   AvsB <- quickAnalysis ( expres =expresAvsB,
                       groupingVar = groupVar ,
@@ -92,6 +120,7 @@ testQuickAnalysis <- function()
                       aTitle="",
                       aFName="Results",
                       outputDir=".",
-                      pvalThreshold=0.01,
-                      useAdjP = FALSE)
+                      pvalThreshold=0.05,
+                      useAdjP = TRUE,
+                      plotSelected=TRUE)
 }
