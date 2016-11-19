@@ -162,49 +162,20 @@ toReqMat <- function (numPoints, aReqPercentMat){
 #' (reqTrueL <- toReqMat (sum(countsTrueL1), reqPercentages))
 #' binScore2(countsTrueL1, reqTrueL)
 binScore2 <- function(aGrid, aReq){
-  comp <- (aGrid[1,1]>= aReq[1,1])&&(aGrid[1,2]<= aReq[1,2])&&(aGrid[1,3]<= aReq[1,3]) 
-  (aGrid[2,1]>=aReq[2,1])&&(aGrid[2,2]<=aReq[2,2])&&(aGrid[2,3]<=aReq[2,3])
-  (aGrid[3,1]>=aReq[3,1])&&(aGrid[3,2]>=aReq[3,2])&&(aGrid[3,3]>=aReq[3,3])
+ # show(aGrid)
+ #   show(aReq)
+ #  cat((aGrid[1,1]>= aReq[1,1]), "\t",(aGrid[1,2]<= aReq[1,2]), "\t",(aGrid[1,3]<= aReq[1,3]), "\n", 
+ #      (aGrid[2,1]>=aReq[2,1]), "\t",(aGrid[2,2]<=aReq[2,2]), "\t",(aGrid[2,3]<=aReq[2,3]), "\n",
+ #      (aGrid[3,1]>=aReq[3,1]), "\t",(aGrid[3,2]>=aReq[3,2]), "\t",(aGrid[3,3]>=aReq[3,3]), "\n")
+  
+  comp <- (aGrid[1,1]>= aReq[1,1])&&(aGrid[1,2]<= aReq[1,2])&&(aGrid[1,3]<= aReq[1,3]) && 
+          (aGrid[2,1]>=aReq[2,1])&&(aGrid[2,2]<=aReq[2,2])&&(aGrid[2,3]<=aReq[2,3]) &&
+          (aGrid[3,1]>=aReq[3,1])&&(aGrid[3,2]>=aReq[3,2])&&(aGrid[3,3]>=aReq[3,3])
   return(comp)
 }
 
 #' scoreGenesMat
-#' \code{scoreGenesMat} is a simple wrapper for scoring all the genes in a pair of Methylation-Expression matrices.
-#' @param mets, 
-#' @param expres
-#' @param minN11=1 
-#' @param N2 = 0 
-#' @param aWeightM
-#' @param set1.3=TRUE
-scoreGenesMat <- function(mets, expres, 
-                          minN11=1, N2 = 0,
-                          aWeightM=matrix (c(1,-1,-Inf,1,-1,-1,1,1,1), nrow=3, byrow=TRUE), 
-                          set1.3=TRUE){
-  N <- dim(mets)[2]
-  if (is.null(minN11)){
-    N11 <- N33 <- floor(0.1*N)
-  }else{
-    N11 <- N33 <- minN11
-  }
-  Ngenes <-nrow(mets)
-  scores <- data.frame(logicSc=rep(FALSE, Ngenes), numericSc=rep(0, Ngenes))
-  rownames(scores)<- rownames(mets)
-  for (gene in 1:Ngenes){
-    theGene <- rownames(expres)[gene]
-    xVec<- mets[theGene,]
-    yVec<- expres[theGene,]
-    geneGrid <- calcFreqs(xMet=xVec, yExp=yVec, x1=1/3, x2=2/3,
-                          y1=NULL, y2=NULL, percY1=1/3, percY2=2/3)
-    binSc <-  binScore (geneGrid, n11=N11, n33=N33, nMediumBand = N2)
-    scores[gene, "logicSc"] <- binSc
-    numSc <- numScore (geneGrid, aWeightM=aWeightM)
-    scores[gene, "numericSc"] <- numSc
-  }
-  return (scores)
-}
-
-#' scoreGenesMat2
-#' \code{scoreGenesMat2} is an extension of scoreGenesMat that contains ALL parameters of the functions it calls
+#' \code{scoreGenesMat} is an extension of scoreGenesMat that contains ALL parameters of the functions it calls
 #' that is ALL parameters for calcFreqs, binScore and numScore.
 #' @param mets, 
 #' @param expres
@@ -231,7 +202,7 @@ scoreGenesMat <- function(mets, expres,
 #' This is equivalent to saying that if there is even one point there the score will be <=0.
 
 standardWeightM <- matrix (c(1,-1,-99,1,-1,-1,1,1,1), nrow=3, byrow=TRUE)
-scoreGenesMat2 <- function(mets, expres,
+scoreGenesMat <- function(mets, expres,
 							x1=1/3, x2=1/3, y1=NULL, y2=NULL, percY1=1/3, percY2=2/3,
 							n11=1, n33=1, n13=0, scoreMediumBand=TRUE, nMediumBand=NULL,
 							aWeightM=standardWeightM, set1.3=TRUE){
@@ -255,8 +226,8 @@ scoreGenesMat2 <- function(mets, expres,
   return (scores)
 }
 
-#' scoreGenesMatrix
-#' \code{scoreGenesMatrix} is an extension of scoreGenesMat/scoresGenesMat2 
+#' scoreGenesMat2
+#' \code{scoreGenesMat2} is an extension of scoreGenesMat/scoresGenesMat2 
 #' that scores cell by cell instead of using the three bands rule 
 #' @param mets, 
 #' @param expres
@@ -269,10 +240,11 @@ scoreGenesMat2 <- function(mets, expres,
 #' @param percY1, percY2 Values used to act as default for `y1`and `y2` when these are set to `NULL`
 standardWeightM <- matrix (c(1,-1,-100,1,-1,-1,1,1,1), nrow=3, byrow=TRUE)
 standardPercentsMat <- matrix (c(10, 5, 0, 10, 5, 5, 5, 5, 10), nrow=3, byrow=TRUE)
-scoreGenesMatrix <- function(mets, expres,
-                           x1=1/3, x2=1/3, y1=NULL, y2=NULL, percY1=1/3, percY2=2/3,
+scoreGenesMat2 <- function(mets, expres,
+                           x1=1/3, x2=2/3, 
+                           y1=NULL, y2=NULL, percY1=1/3, percY2=2/3,
                            aReqPercentsMat=standardPercentsMat,
-                           aWeightM=standardWeightM, set1.3=TRUE){
+                           aWeightM=standardWeightM){
   N <- dim(mets)[2]
   Ngenes <-nrow(mets)
   scores <- data.frame(logicSc=rep(FALSE, Ngenes), numericSc=rep(0,Ngenes))
@@ -300,7 +272,7 @@ scoreGenesMatrix <- function(mets, expres,
 #' xVec<- as.numeric(myMetilData[trueGene1,])
 #' yVec<-as.numeric(myExprData[trueGene1,])
 #' titolT <- paste (trueGene1, "(May be GRM)")
-#' plotGenSel(xMet=xVec, yExp=yVec, titleText=titolT, x1=1/3, x2=2/3)
+#' plotGeneSel(xMet=xVec, yExp=yVec, titleText=titolT, x1=1/3, x2=2/3)
 #'
 #'
 plotGenSel <- function(xMet, yExp, titleText, 
@@ -324,7 +296,9 @@ plotGenSel <- function(xMet, yExp, titleText,
 #' plotGenesMat (mets=falseLMet, expres=falseLExpr, fileName="falseGenesPlots.pdf")
 #'
 plotGenesMat <- function(mets, expres, fileName, text4Title=NULL, 
-                         percY1=1/3, percY2=2/3, x1=1/3, x2=2/3, 
+                         x1, x2, 
+                         y1=NULL, y2=NULL, 
+                         percY1=1/3, percY2=2/3,  
                          plotGrid=TRUE, logicSc = NULL){
   if (!is.null(fileName))
     pdf(fileName)
