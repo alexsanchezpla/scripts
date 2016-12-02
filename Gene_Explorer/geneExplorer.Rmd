@@ -1,0 +1,166 @@
+---
+title: "Exploring the results of omics data analysis inetractively"
+author: "Alex Sanchez"
+date: "December 2, 2016"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#Introduction
+
+Omics data analysis usually yield its results as a variey of tables and graphs.
+
+It often happens that we need to review or reanalyze some of these results making plots or computations on a  subset of selected features.
+
+The goal of this document is to illustrate how to do some reanalyses using R code. Ideally some of these may -in a future work- be implemented in some type of i interactive application that allows the researcher to explore the data him/herself. 
+
+## A typical scenario and a wishlist
+
+A typical omics data analysis is described in the documents available in this github repository:  
+[https://github.com/alexsanchezpla/scripts/tree/master/Exemple_Analisis_BioC](https://github.com/alexsanchezpla/scripts/tree/master/Exemple_Analisis_BioC).
+
+Typical input/output from this type of analysis may be:
+
+- Input
+    - A gene expression matrix or similar:   [https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/results/Datos.Normalizados.Filtrados.csv2](https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/results/Datos.Normalizados.Filtrados.csv2)
+    - A `targets` file with the covariates for the analysis:  
+[https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/data/targets.txt](https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/data/targets.txt)    
+    - A `topTable` such as that produced by the `limma` Bioconductor package:    
+    [https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/results/ExpressAndTop_AvsB.csv2](https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/results/ExpressAndTop_AvsB.csv2).  
+    - Notice that the first two correspond to analysis inputs whilst the `topTable` is an analysis output, although it is an input for the "reanalysis".
+    
+- Output
+    - Given a gene (or a set of genes) we may want, for each of them
+        - Establish if the expression of the gene is related to a given categorical variable
+            - Boxplot/dotplot
+            - ANOVA
+        - Establish if the expression of the gene is related to a given continuous variable
+            - Scatterplot
+            - Correlations
+    - Given a subset of genes (and samples) from the expression matrix we may want: 
+        - To draw a heatmap on the selected rows/columns, perhaps to highlight some characteristic that the group has or simply to do this with a distinct colour.
+        - To compute and plot a `Principal Components Analysis` on the data, perhaps to investigate the effect of removing one or more samples.
+    - Given a topTable (ordered results) we may want: 
+        - To draw a volcano where we may wish to interactively highlight some of the points.
+    - The results of these reanalyses may be sent to xls/html/pdf/png files or shown in the screen.
+            
+
+The code in the following sections illustrates some examples on how one could do these analyses. Obviously this can always be improved.
+
+
+### Setting the environment
+
+```{r setDirs}
+workingDir <- getwd()
+dataDir <- file.path(workingDir, "dades")
+codeDir <- file.path(workingDir, "Rcode")
+resultsDir <- file.path(workingDir, "results")
+setwd(workingDir)
+```
+
+```{r loadpackages}
+installifnot <- function(pckgName){
+if (!(require(pckgName, character.only = TRUE))) {
+  install.packages(pckgName)
+  }
+}
+installBiocifnot <- function(pckgName){
+if (!(require(pckgName, character.only = TRUE))) {
+  source("http://Bioconductor.org/biocLite.R")
+  biocLite(pckgName)
+  }
+}
+installifnot("beeswarm")
+installifnot("devtools")
+source(file.path(codeDir,"plotPCA2.R"))
+if(!(require(printr))) {
+  install.packages(
+    'printr',
+    type = 'source',
+    repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+  )
+}
+```
+
+## Basic analyses
+
+### Example inputs
+
+For simplicity we have downloaded and stored in our `dades` directory the three input files mentioned above.
+
+```{r}
+myExpres <- read.table(file.path(dataDir, "Datos.Normalizados.Filtrados.csv2"), 
+                     head=TRUE, sep=";", dec=",", row.names =1)
+head(myExpres[,1:7])
+targets <- read.table(file.path(dataDir, "targets.txt"), head=TRUE, sep="\t", dec=".")
+head(targets)
+topTab <-  read.table(file.path(dataDir, "ExpressAndTop_AvsB.csv2"), 
+                      head=TRUE, sep=";", dec=",", row.names =1)
+head(topTab[,1:9])
+```
+
+### Exploring a single gene
+
+Consider gene `FOXA1` the first one in the top table.
+
+We may plot its expression for each group:
+
+```{r}
+require(beeswarm)
+i <- 1 
+geneName <- as.character(topTab$SymbolsA[i])
+probesetName <- rownames(topTab)[i]
+whichGene <- which(rownames(myExpres)==probesetName)
+whichExpres <- as.double(myExpres[whichGene,])
+groupNames <- unique(targets$Group)
+lev <- targets$Group
+desc <- paste("logFC=", round(topTab$logFC[i],3), ", p-val=", round(topTab$P.Value[i],6),
+              ", Adj-p=", round(topTab$adj.P.Val[i],6), sep="")
+beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
+         main=paste(geneName, desc, sep="\n"), labels=groupNames)  
+boxplot(whichExpres~lev, add = T, names = c("","",""), col="#0000ff22")
+```
+
+In this case it is better to only plot the points
+
+```{r}
+beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
+         main=paste(geneName, desc, sep="\n"), labels=groupNames)  
+```
+
+### Looking at genes in pairs
+
+We may want to see if the expression of the first three genes FOX1, VGLL1, SPDEF is related.
+
+```{r}
+idxs<- 1:3
+geneNames <- as.character(topTab$SymbolsA[idxs])
+probesetNames <- rownames(topTab)[idxs]
+whichExpres <- myExpres[probesetNames,]
+rownames(whichExpres)<- geneNames
+pairs(t(whichExpres))
+```
+
+### A PCA plot
+
+Principal components analysis is very useful to detect natural or technical groups (batches) in data.
+
+```{r unPCA}
+x <- myExpres
+plotPCA2(X = x, colors = as.integer(targets$Group) + 1,  
+         labels= targets$SampleIDs, transpose = TRUE)
+legend('topright', c("A", "B", "L"), pch=1,  col= unique(as.integer(targets$Group)) + 1, bty='n')
+```
+
+### And so on ...
+
+
+
+
+
