@@ -18,14 +18,14 @@ Omics data analysis usually yield its results as a variey of tables and graphs.
 
 It often happens that we need to review or reanalyze some of these results making plots or computations on a  subset of selected features.
 
-The goal of this document is to illustrate how to do some reanalyses using R code. Ideally some of these may -in a future work- be implemented in some type of i interactive application that allows the researcher to explore the data him/herself. 
+The goal of this document is to illustrate how to do some reanalyses using R code. Ideally some of these may -in a future work- be implemented in some type of interactive application that allows the researcher to explore the data him/herself. 
 
 ## A typical scenario and a wishlist
 
 A typical omics data analysis is described in the documents available in this github repository:  
 [https://github.com/alexsanchezpla/scripts/tree/master/Exemple_Analisis_BioC](https://github.com/alexsanchezpla/scripts/tree/master/Exemple_Analisis_BioC).
 
-Typical input/output from this type of analysis may be:
+Usual input/output from this type of analysis may be:
 
 - Input
     - A gene expression matrix or similar:   [https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/results/Datos.Normalizados.Filtrados.csv2](https://raw.githubusercontent.com/alexsanchezpla/scripts/master/Exemple_Analisis_BioC/results/Datos.Normalizados.Filtrados.csv2)
@@ -44,14 +44,16 @@ Typical input/output from this type of analysis may be:
             - Scatterplot
             - Correlations
     - Given a subset of genes (and samples) from the expression matrix we may want: 
+        - To investigate the correlation between these genes, either graphically or numerically.
         - To draw a heatmap on the selected rows/columns, perhaps to highlight some characteristic that the group has or simply to do this with a distinct colour.
         - To compute and plot a `Principal Components Analysis` on the data, perhaps to investigate the effect of removing one or more samples.
-    - Given a topTable (ordered results) we may want: 
-        - To draw a volcano where we may wish to interactively highlight some of the points.
+    - Given a _topTable_ (ordered results) we may want: 
+        - To draw a volcano plot where we may wish to interactively highlight some of the points.
+        - To do a biological significance analysis on the differentially expressed genes.
     - The results of these reanalyses may be sent to xls/html/pdf/png files or shown in the screen.
+    -*Notice that these points are related. Very often the subset of genes will be determined by the values in the _topTable_*
             
-
-The code in the following sections illustrates some examples on how one could do these analyses. Obviously this can always be improved.
+The code in the following sections illustrates some examples on how one could do these analyses (obviously this can always be improved). Because one of the goals of this document is to serve as the basis for an interactive document the examples distinguish the parameters from the execution of each call.
 
 
 ### Setting the environment
@@ -95,36 +97,93 @@ if(!(require(printr))) {
 For simplicity we have downloaded and stored in our `dades` directory the three input files mentioned above.
 
 ```{r}
-myExpres <- read.table(file.path(dataDir, "Datos.Normalizados.Filtrados.csv2"), 
-                     head=TRUE, sep=";", dec=",", row.names =1)
+fileName   <- "Datos.Normalizados.Filtrados.csv2"
+HEAD <- TRUE
+SEP=";"
+DEC=","
+ROWNAMES =1
+myExpres <- read.table(file.path(dataDir, fileName), 
+                     head=HEAD, sep=SEP, dec=DEC, row.names =ROWNAMES)
 head(myExpres[,1:7])
-targets <- read.table(file.path(dataDir, "targets.txt"), head=TRUE, sep="\t", dec=".")
+
+targetsFileName <- "targets.txt"
+SEP="\t"
+DEC="."
+targets <- read.table(file.path(dataDir, targetsFileName), head=TRUE, sep=SEP, dec=DEC)
 head(targets)
-topTab <-  read.table(file.path(dataDir, "ExpressAndTop_AvsB.csv2"), 
-                      head=TRUE, sep=";", dec=",", row.names =1)
+
+topTableFileName <- "ExpressAndTop_AvsB.csv2"
+SEP=";"
+DEC=","
+topTab <-  read.table(file.path(dataDir, topTableFileName), 
+                      head=TRUE, sep=SEP, dec=DEC, row.names =1)
 head(topTab[,1:9])
 ```
 
-### Exploring a single gene
+### Exploring a single gene (1): Locating the gene
+
+If one wants to work with the expression values -or the analysis values- of a given gene one must be able to locate it in the table containing these values. 
+
+Imagine we want to explore gene "FOX1".
+
+The topTable contains gene symbols so finding this gene is straightforward.
+```{r}
+geneSymbol <- "FOXA1"
+geneIndex<- grep(geneSymbol, topTab$SymbolsA)
+topTab[geneIndex,1:6]
+```
+
+The expression matrix does not have gene SYMBOLS as row names because there may be several probesets with the same symbol. In this case we need to get the probeset ID first, for instance from the tobTable (or if we don't have one, from an annotations table).
+```{r}
+geneSymbol <- "FOXA1"
+geneIndex<- grep(geneSymbol, topTab$SymbolsA)
+if (length(geneIndex) > 0)
+  probesetName <- rownames(topTab)[geneIndex]
+head(myExpres[probesetName,])
+```
+
+### Exploring a single gene (2): Drawing plots
 
 Consider gene `FOXA1` the first one in the top table.
 
-We may plot its expression for each group:
+Start locating the gene as shown above
+```{r}
+geneName <- "FOXA1"
+geneIndex<- grep(geneName, topTab$SymbolsA)
+if (length(geneIndex) > 0)
+  probesetName <- rownames(topTab)[geneIndex]
+whichExpres<- myExpres[probesetName,]
+whichExpres <- as.double(whichExpres)
+whichGene <- which(rownames(myExpres)==probesetName)
+whichInTopTab <- which(rownames(topTab)==probesetName)
+
+# Alternatively one could do:
+# whichGene <- which(rownames(myExpres)==probesetName)
+# whichExpres
+```
+
+Another parameter that has to be set is the covariate that is used to define the groups.
+```{r}
+groupNames <- unique(targets$Group)
+lev <- targets$Group
+desc <- paste("logFC=", round(topTab$logFC[whichInTopTab],3), ", p-val=",
+              round(topTab$P.Value[whichInTopTab],6),
+              ", Adj-p=", round(topTab$adj.P.Val[whichInTopTab],6), sep="")
+```
+
+We may plot the expression of the selected gene for each group. This can be done using boxplots, dotplots or both plots overimposed.
 
 ```{r}
 require(beeswarm)
-i <- 1 
-geneName <- as.character(topTab$SymbolsA[i])
-probesetName <- rownames(topTab)[i]
-whichGene <- which(rownames(myExpres)==probesetName)
-whichExpres <- as.double(myExpres[whichGene,])
-groupNames <- unique(targets$Group)
-lev <- targets$Group
-desc <- paste("logFC=", round(topTab$logFC[i],3), ", p-val=", round(topTab$P.Value[i],6),
-              ", Adj-p=", round(topTab$adj.P.Val[i],6), sep="")
+opt<- par(mfrow=c(2,2)) # These calls should be turned into functions
 beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
+         main=paste(geneName, desc, sep="\n"), labels=groupNames) 
+boxplot(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
          main=paste(geneName, desc, sep="\n"), labels=groupNames)  
+beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
+         main=paste(geneName, desc, sep="\n"), labels=groupNames) 
 boxplot(whichExpres~lev, add = T, names = c("","",""), col="#0000ff22")
+par(opt)
 ```
 
 In this case it is better to only plot the points
@@ -138,6 +197,8 @@ beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
 
 We may want to see if the expression of the first three genes FOX1, VGLL1, SPDEF is related.
 
+A simple approach is to use the `pairs` functions:
+
 ```{r}
 idxs<- 1:3
 geneNames <- as.character(topTab$SymbolsA[idxs])
@@ -146,6 +207,37 @@ whichExpres <- myExpres[probesetNames,]
 rownames(whichExpres)<- geneNames
 pairs(t(whichExpres))
 ```
+
+This may be improved to include the correlation coefficients in the upper panel:
+```{r}
+panel.cor <- function(x, y, digits = 2, cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  # correlation coefficient
+  r <- cor(x, y)
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste("r= ", txt, sep = "")
+  text(0.5, 0.6, txt)
+
+  # p-value calculation
+  p <- cor.test(x, y)$p.value
+  txt2 <- format(c(p, 0.123456789), digits = digits)[1]
+  txt2 <- paste("p= ", txt2, sep = "")
+  if(p<0.01) txt2 <- paste("p= ", "<0.01", sep = "")
+  text(0.5, 0.4, txt2)
+}
+```
+
+```{r}
+idxs<- 1:3
+geneNames <- as.character(topTab$SymbolsA[idxs])
+probesetNames <- rownames(topTab)[idxs]
+whichExpres <- myExpres[probesetNames,]
+rownames(whichExpres)<- geneNames
+pairs(t(whichExpres), upper.panel = panel.cor)
+```
+
 
 ### A PCA plot
 
