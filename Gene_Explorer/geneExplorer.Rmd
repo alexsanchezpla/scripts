@@ -65,6 +65,12 @@ codeDir <- file.path(workingDir, "Rcode")
 resultsDir <- file.path(workingDir, "results")
 setwd(workingDir)
 ```
+```{r}
+library(httr)
+set_config(
+  use_proxy(url="conf_www.ir.vhebron.net", port=8080)
+)
+```
 
 ```{r loadpackages}
 installifnot <- function(pckgName){
@@ -81,6 +87,8 @@ if (!(require(pckgName, character.only = TRUE))) {
 installifnot("beeswarm")
 installifnot("devtools")
 source(file.path(codeDir,"plotPCA2.R"))
+# install_github(paste('alexsanchezpla/scripts/Rpackages/', "plotPCA2", sep="")) # 
+# install_github(paste('alexsanchezpla/scripts/Rpackages/', "boxplotWithDots", sep="")) # 
 if(!(require(printr))) {
   install.packages(
     'printr',

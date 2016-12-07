@@ -3,3 +3,5 @@
 export(LinksFile2Html)
 export(myFACategs)
 export(myGENCategs)
+importFrom(utils,read.table)
+importFrom(utils,write.table)

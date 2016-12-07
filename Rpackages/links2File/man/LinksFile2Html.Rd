@@ -36,13 +36,13 @@ htmlInfo <- list(To = "My Client", # nomClients,
                  Description = "Analysis of Biological Significance for some selected gene list",
                  Analysts = "Ferran Brianso and Alex Sanchez",               # analistes,
                  Contact = "Alex Sanchez (alex.sanchez@vhir.org)")
-GENCategs <- myGENCategs() 
+GENCategs <- myGENCategs()
 fcategs <- GENCategs[["categs"]]
 fNames <-  GENCategs[["noms"]]
-# Invoke main function 
+# Invoke main function
 # Not run automatically. Check by yourself uncommenting next lines
 # setwd("examples")
-# LinksFile2Html(linksFileName, resultsDir, htmlInfo, 
+# LinksFile2Html(linksFileName, resultsDir, htmlInfo,
 #                categs.descs = fCategs, categs.names = fNames,
 #                IndexDir = "", UEB = TRUE, resultsFileName="Resultats")
 }
