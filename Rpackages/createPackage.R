@@ -11,7 +11,7 @@ SO <- version[["os"]]
 if (SO=="linux-gnu")
 {pkgDir <- "~/Dropbox (VHIR)/Scripts/Rpackages"
 }else{
-  pkgDir <- "C:/users/ALexandre/Dropbox (VHIR)/Scripts/Rpackages"
+  pkgDir <- E:/Dropbox (VHIR)/Scripts/Rpackages
 }
 
 setwd(pkgDir)

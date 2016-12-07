@@ -1,0 +1,13 @@
+Package: boxplotWithDots
+Type: Package
+Title: Write a dot plot and, eventually, overimpose a boxplot
+Version: 0.1.0
+Author: Alex Sanchez
+Maintainer: Alex Sanchez <asanchez@ub.edu>
+Description: Write a dot plot and, eventually, overimpose a boxplot
+Depends:
+    R (>= 3.3.1),
+    beeswarm
+License: GPL-2
+LazyData: TRUE
+RoxygenNote: 5.0.1
