@@ -1,0 +1,1299 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+\documentclass[a4paper]{article}
+\newcommand{\GO}{\texttt{GO}}
+\newcommand{\R}{\textsl{R}}
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\textit{#1}}}
+\newcommand{\Rmethod}[1]{{\texttt{#1}}}
+\newcommand{\Rclass}[1]{{\textit{#1}}}
+
+\newcommand{\Robj}[1]{{\texttt{#1}}}
+\newcommand{\Rfun}[1]{{\texttt{#1}}}
+\newcommand{\Rpac}[1]{{\textit{#1}}}
+
+\newcommand{\classdef}[1]{%
+  {\em #1}
+}
+
+\newcommand{\etal}{et \emph{al.}\ }
+
+\newcommand{\bfr}{\begin{framed}}
+\newcommand{\efr}{\end{framed}}
+
+
+\parindent 0in
+
+\usepackage{Sweave}
+\usepackage{a4wide}
+\usepackage{setspace}
+\usepackage{amsmath}                                                                                        %% Estàndar %%
+\usepackage{amsthm}                                                                  %% Estils de definició d'enunciats %%
+\usepackage{amssymb}                                                                                         %% Símbols %%
+\usepackage{hyperref}
+\usepackage{moreverb}
+\usepackage{array}   % Opcions addicionals per arrays i alineació en columnes %%
+\usepackage{delarray}                                %% Esten el paquet array %%
+\usepackage{framed}
+%\usepackage{verbatim}
+%\usepackage{graphicx}
+%\usepackage{url} % typeset URL's reasonably
+%\usepackage{listings}
+
+  \newtheorem{defs}{Definition}
+    \newtheorem{thm}{Theorem}
+    \newtheorem{prop}{Proposition}
+    \newtheorem{cor}{Corollary}
+    \newtheorem{exam}{Example}
+
+\parindent 0in
+
+\title{Gene Ontology Analysis with Bioconductor}
+\author{Alex Sánchez}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+
+\section{Reflexions preliminars}
+
+%\subsection{Notes per a una nova versió}
+
+% La versio original d'aquestes notes va sorgir al començar jo a desenvolupar l'actual \texttt{goProfiles}.
+% En aquell moment no tenia massa clar ni com manegar anotacions ni com manipular dades de GO.
+% Ara ho tinc més clar pero com l'estructura d'alguns paquets ha canviat convindria repassar-ho tot.
+% Es a dir caldria un document (actualització d'aquest) on es tracti:
+% \begin{enumerate}
+% \item Manegament de les anotacions en Bioconductor. Aixo vol dir
+% \begin{enumerate}
+%   \item Anotacions generals (gene symbols, probes, etc) amb el nou format .db sense environments
+%   \item Com a part d'aquestes anotacions: Manegament d'informació de la GO.
+% \end{enumerate}
+% \item Fixem-nos que he dit ``manegament''. Un altre aspecte important, que no hem treballat, però que és molt important és la \textbf{cerca i recuperació d'informació} basada per exemple en l'ús de \texttt{BiomaRt}.
+% \end{enumerate}
+% Aquests dos punts podrien estar, o no, en un document apart anomenat ``Working with Annotations'', però que necessàriament la persona que vagi a treballar amb dades GO ha de conèixer i comprendre bé.
+
+% Una altra part, complementària de l'anterior, ha de ser l'anàlisi de significació biològica (GO) fent servir Bioconductor. Això vol dir
+% \begin{enumerate}
+%    \item Manipulació, resum o visualització de dades GO:
+%        \begin{enumerate}
+%         \item Llistes obtingudes dels paquets d'anotacions
+%         \item Grafs induïts per les llistes de gens
+%         \begin{itemize}
+%             \item Visualització i navegació pels grafs
+%            \item Coloració diferencial dels grafs associada a una llista de p-valors
+%            \item Ús de paquets "clàssics" per manegar la GO com \texttt{ontoTools} o \texttt{GOstats}.
+%\item Nous paquets que hi pugui haver per fer això mateix.
+%         \end{itemize}
+%        \item Creacio i visualització de perfils (òptica descriptiva)
+%             \begin{itemize}
+%               \item \texttt{goProfiles}
+%               \item \texttt{goTools}
+%             \end{itemize}
+%            Per cert \textbf{CAL COMPARAR} els perfils que fan aquests dos (i els gràfics).
+%       \end{enumerate}
+%    \item Anàlisis d'enriquiment
+%        \begin{enumerate}
+%            \item \emph{Enrichment Analysis}
+%            \begin{itemize}
+%                \item \texttt{GOstats}
+%                \item \texttt{topGO}
+%                \item altres???
+%            \end{itemize}
+%            \item \emph{Gene Set Enrichment Analysis}
+%            \begin{itemize}
+%                \item \texttt{GSEA}
+%                \item Altres de nous
+%            \end{itemize}
+%            \item Altres variants: ``Pathway Analysis'' amb \texttt{GlobalTest}
+%        \end{enumerate}
+%    \item Comparació de llistes de gens
+%        \begin{itemize}
+%            \item Basades en la GO: \texttt{goProfiles}
+%            \item Basades en altres aproximacions: \texttt{orderedLists}
+%        \end{itemize}
+%    \item Formació de grups basada en les anotacions de la GO
+%        \begin{itemize}
+%            \item \texttt{goCluster} --> \emph{Va desapareixer, però perquè}?
+%        \end{itemize}
+%    \item Anàlisi de similaritat semàntica?
+%        \begin{itemize}
+%            \item \texttt{semSim} --> \emph{Semblant al que haviem de fe nosaltres?}
+%        \end{itemize}
+%\end{enumerate}
+
+%\subsection{Dels paquets antics als basats en \texttt{.dbi}}
+
+% El codi inclós en aquest document es va desenvolupar amb versions de Bioconductor anteriors a la 2.0
+% A partir d'aquesta versió comencen a introduir-se alguns canvis, un general i un específic
+%\begin{itemize}
+%    \item Es promou substituir l'ús de ``environments'' accedits amb get/mget per paquets basats en SQL-lite, que, apart de poder-se accedir així permeten extraccions complexes mitjançant consultes SQL:
+%    \item L'environment \texttt{GOENTREZID2GO} que relaciona els \texttt{Entrez} i els termes GO --i que era fonamental en el nostre paquet \texttt{goProfiles}-- és eliminat passant a ser organisme específic  \texttt{org.Hs.egGO}, \texttt{org.Hs.egGO}, etc. La forma d'usar-lo, però és la mateixa
+%    \begin{itemize}
+%        \item La versio antiga, no depen de l'especie i si del paquet GO
+<<versions1, eval=FALSE>>=
+  require(hgu95av2.db)
+  humanEntrez <- toTable(hgu95av2ENTREZID)[,2]
+  x.man <- sample(humanEntrez,10)
+  require(mouse4302.db)
+  mouseEntrez <- toTable(mouse4302ENTREZID)[,2]
+  x.mouse <- sample(mouseEntrez,10)
+  require(GO)
+  GO.mouse<- mget(x.mouse, env = GOENTREZID2GO)
+  GO.man <- mget(x.man, env = GOENTREZID2GO)
+@
+
+%         \end{verbatim}
+%        \item La versio nova, no depen del paquet \texttt{GO} (deperecat) ni de \texttt{GO.db} sino dels paquets
+%            \texttt{org.XX.eg.db} (de fet ``eg'' vol dir ``entrez gene'') que fan un mapatge dels identificadors ``entrez'' a molts altres (GO inclosos) però ho fan espècie per espècie.
+
+<<version2, eval=FALSE>>=
+            GO.mouse.nou<- mget(x.mouse, env = org.Mm.eg.GO)
+            GO.man.nou <- mget(x.man, env = or.Hs.eg.GO)
+
+@
+
+
+\section{Introduction}
+Along the document several packages are used. The following code loads them, allowing for old--style (environment-based, some of them deprecated)  and new--style (.dbi based) versions.
+
+<<setdirectories, echo=F>>=
+options(width=60)
+workingDir <- getwd()
+dataDir <-file.path(workingDir, "data")
+targetsFile <-"targets.txt"
+@
+
+<<packages, echo=F>>=
+installifnot <- function (pckgName){
+if(!(require(pckgName, character.only=TRUE))){
+  install.packages(pckgName)
+  }
+}
+installBiocifnot <- function (pckgName){
+if(!(require(pckgName, character.only=TRUE))){
+  source("http://Bioconductor.org/biocLite.R")
+  biocLite(pckgName)
+  }
+}
+# hgu95av2Pkg <- "hgu95av2.db"   # deprecated
+mouse4302Pkg <- "mouse4302.db"
+GOPkg <- "GO.db"
+annotatePkg <-"annotate"
+humanPkg <- "org.Hs.eg.db"
+mousePkg <- "org.Mm.eg.db"
+# installBiocifnot(hgu95av2Pkg)    # deprecated
+installBiocifnot(mouse4302Pkg)
+installBiocifnot(annotatePkg)
+installBiocifnot(GOPkg)
+if (!is.null(humanPkg)) installBiocifnot(humanPkg)
+if (!is.null(mousePkg)) installBiocifnot(mousePkg)
+@
+
+The goal of this document is to present and discuss some of the existing approaches to analyze biological data
+--usually arising from microarray experiments-- using the Gene Ontology (see \cite{GO}).
+
+The Gene Ontology (GO) project is, as defined in its web site, (\url{http://www.geneontology.org}{http://www.geneontology.org}):``a collaborative effort to address the need for consistent descriptions of gene products in different databases.
+
+The GO collaborators develop three structured, controlled vocabularies (ontologies) that describe gene products in terms of their associated biological processes, cellular components and molecular functions
+in a species-independent manner.
+
+The use of GO terms by several collaborating databases facilitates uniform queries across them. The controlled vocabularies are structured so that one can query them at different levels: for example, one can use the GO to find all the gene products in the mouse genome that
+are involved in signal transduction, or one can zoom in on all the receptor tyrosine kinases.
+
+This structure also allows annotators to assign properties to gene products at different levels, depending on how much it is known about a gene product.
+
+The widespread use of omics experiments in recent years has made it possible to have a ''certain agreement'' about what type of experiments do scientist perform using this technology. Simon (2004, \cite{Simon}) distinguishes between: (i) Class comparison,
+(ii) Class discovery, (iii) Class prediction and (iv) Pathway analysis.
+
+Broadly speaking, these experiments usually yield one or more lists of genes (i.e. those belonging to a given cluster,
+those considered to be differentially expressed, either \emph{overregulated} ot \emph{underregulated}, etc.) which should be given a biological interpretation.
+
+The goal of Gene Ontology--based analysis is to facilitate this interpretation by means of the annotations that these genes may have in the Gene Ontology database.
+
+In contrast with the agreement found in the existing types of omics experiments there doesn't exist a well--defined classification of the (type of) problems that GO analysis may help to answer.
+Some typical questions one finds addressed in the literature are:
+\begin{itemize}
+\item What is the biological meaning of my gene list? that is to what Molecular Function/Biological Process/Cellular Component can these genes be associated?
+\item Is this set of ``meanings'' coherent with any biological interpretation?
+\item In the case I am comparing several conditions, how does the list relate with the different conditions?
+\item How does this list relate to relevant biochemical pathways?
+\end{itemize}
+
+The way that these or similar questions are answered is strongly dependant on the way used to represent or synthesize the mapping between the gene list and the gene ontology.
+The \GO is structured as three independent directed acyclic graphs (DAG). Given a list of genes,
+they are associated with certain terms in the graphs (each gene may be associated to none, one or more term).
+This determines what is called \emph{induced subgraphs}, one for each ontology (MF, BP and CC).
+
+These subgraphs may be big, complex, structures specially whene the list originating them is also big
+(e.g. several hundreds of genes). In order to simplify this structure it may be \emph{sliced} or
+projected at a given level givin raise to a table of frequencies, where each cell contains the number
+genes annotated by its corresponding term at the level where the slice has been done.
+The lattice structure of the graphs implies that one gene may appear in multiple cells.
+of this table, which we call from now on a \emph{functional profile}.
+
+Figure \ref{ex1_graf} shows the graph that corresponds to the list of genes described in example 1 and table \ref{ex1_table} is the functional profile summarizing this graph at the first level. Both make only reference to the MF ontology.
+
+This distinction is important because it influences the methods and the tools used to perform the analysis, and, of
+course, because different types of analysis yield different types of conclusions whose relation is not necessarily
+obvious. An additional difficulty arises in the fact that these are no ``standard analysis'' and as such different
+solutions implemented are difficult to compare.
+
+\subsection{Examples}
+
+In order to illustrate the discussion below we consider some situations where we may want to do Gene Ontology-based analysis.
+
+\subsubsection{A microarray analysis}
+
+See \url{https://github.com/alexsanchezpla/scripts/tree/master/Exemple_Analisis_BioC}  for a description of this example that illustrates a complete analysis using, affymetrix arrays, from images to a list of
+ differentially expressed genes.
+
+\subsubsection{DAVID's example lists}
+DAVID and EASE are tools developped at NIH (\href{http://david.niaid.nih.gov/david/upload.asp}
+{http://david.niaid.nih.gov/david/upload.asp})for the anotation visualization and analysis based on
+functional classification.
+They contain two example lists that will be also used in the following, allowing for comaprison with their results.
+
+
+\subsection{Bioconductor and Gene Ontology analysis}
+
+
+Bioconductor (www.bioconductor.org) is an ``open development
+software project for the analysis and comprehension of genomic
+data". The project has its origin in the Statistical community
+working in genomic problems (mainly in Australia and the U.S.A).
+It is based on the free statistical language \R\
+(www.r-project.org) and it has grown from users contributions
+which submit libraries of programs (``packages'' in R jargon)
+implementing specific functionalities.
+
+The broad goals of the Bioconductor project are to
+\begin{itemize}
+\item provide access to a wide range of powerful statistical and graphical methods for the analysis of genomic data;
+\item facilitate the integration of biological metadata in the analysis of experimental data: e.g. literature data from PubMed, annotation data from Entrez;
+allow the rapid development of extensible, scalable, and
+interoperable software;
+\item promote high-quality documentation and reproducible research;
+\item provide training in computational and statistical methods for the analysis of genomic data.''
+\end{itemize}
+
+
+What I intend to do here is to set the basis for the subsequent
+work, that will be done in a Bioconductor context. To do this,
+before I start to show how to work with graphs and ontologies a
+general presentation of what can be done with annotation data will
+be presented, introducing in a generic way the different concepts
+and tools on which later developments will be based. In each case
+we will discuss first \emph{what is} the task we are interested
+in, and second \emph{how can it be done} using some of the
+existing packages and functions.
+
+Figure \ref{bioconductor-uml} shows some of the main libraries that
+will be discussed in this chapter, their roles and relations.
+
+\begin{figure}
+\begin{framed}
+\begin{center}
+\includegraphics[width=13cm]{images/bioconductor}
+\end{center}
+\end{framed}
+\caption{Some Bioconductor packages to work with
+ontologies} \label{bioconductor-uml}
+\end{figure}
+
+\section{Linking experimental results and annotations}
+
+One of the first tasks one needs to address in an experiment (either before or after it) is to relate the genes or probes
+on a chip with the existing information in Biological databases.
+This task is generally described as annotation.
+It is worth to note, however that the word ``annotation'' can be interpreted in two ways:
+\begin{enumerate}
+\item It may mean to build (an) annotation database(s), relating a set of genes (e.g. those that have been printed on a chip)
+to different databases, such as Entrez, GO or KEGG.
+\item It may mean to recover the annotations for a set of genes (e.g. those in a chip or those selcted after an experiment)
+contained in some Biological Databases (such as Entrez, KEGG or GO).
+\end{enumerate}
+Obviously the first step must have been done at least once, before we can go through the second one any number of times.
+
+There are many tools over the Web to either browse annotations or to annotate gene products. The GO web site
+\url{http://www.geneontology.org/GO.tools}{http://www.geneontology.org/GO.tools} lists
+more than 20 different tools to perform -probably different variants of- this task, as of February 2005.
+
+In Bioconductor one may find different types of packages
+\footnote{This difference is conceptual but does not appear in the nature of the package, each of which is an \R library}:
+\begin{itemize}
+\item \emph {Metadata} packages such as \texttt{GO}, \texttt{KEGG} or \texttt{hgu95av2} contain different type of annotations
+usually obtained from the original database maintaining them.
+\item Annotation packages can be created or explored using ``raw'' \R code or specific packages,
+with no specific name for their type, such as:
+\begin{itemize}
+\item \texttt{Annbuilder} can be used to build an annotation package, storing links between gene or probe identifiers and different databases.
+\item  \texttt{annotate} can be used to retrieve annotation information for a given gene or list of genes.
+\end{itemize}
+\end{itemize}
+
+In this section we will illustrate some concepts and uses of the \texttt{annotate} package.
+
+\subsection{Retrieving information about selected genes}
+\label{annotate1}
+%Use of metadata and (\texttt{GO}) and exploration (\texttt{annotate}) packages
+
+Work with annotation databases often begins after a microarray experiment has been performed, giving a list of selected genes,
+whose biological meaning has then to be specified.
+
+This is for example the case in example 1 (End2EndLab). This consists of a class comparison experiment that used Affymetrix chips where after some analysis a list of genes considered to be
+differentially expressed is obtained. The chips used in this experiment were Affymetrix-``hgu95av2.db''.
+Bioconductor's maintainer's have developped specific annotation packages
+for most Affymetrix chips models. Package \texttt{hgu95av2} corresponds to this one. The
+selected lit of genes has been written into a text file \texttt{``End2EndProbeList.txt''}.
+
+The following paragraphs illustrate how to use the specific packages in \R to obtain some information about the selected genes.
+
+Reading data from disk:
+
+<<LOADING DATA, print=FALSE,echo=TRUE>>=
+genes<-as.character(read.table(file.path(dataDir,"End2EndProbeList.txt"))$V1)
+genes
+@
+
+First thing that can be noticed is that this gene list consists of is
+``affymetrix probe id's''. If we wish to obtain information about
+the genes we'd better use the \emph{Gene Symbol}, which is one of
+the identifiers recognized, that is accepted as input, by most GO
+tools in Bioconductor or out-of-it.
+
+To obtain the gene symbols for our affy id's we will load an annotation package, or
+metadata package created specifically for the chip used in this experiment:
+``hgu95av2''. Most Affymetrix chips have an annotation package which is created and maintained by Bioconductor's team.
+
+Inside the annotation package there are several lists of links relating probe-id's with different databases or between each other.ç
+Each of this lists is implemented as an R ``environment'' which, for practical purposes, implements a hashed list relating
+(in a one-to-many way), two lists of identifiers.
+
+Note that, in principle, having the annotation package is enough to retrieve the annotations.
+The \texttt{annotate} package implements features enhancing this process but it can be omitted to perform ``straight retrieval''.
+
+<<getGeneSymbols, print=FALSE,echo=TRUE>>=
+# stopifnot(require(hgu95av2Pkg,character.only=TRUE))
+# stopifnot(require(annotate))
+gsymbols <-mget(genes, env=hgu95av2SYMBOL) # returns a list
+gsymbols[1:3]
+@
+We have retrieved a list but we can recast it easily into another data type such as a character vector or a data frame.
+
+<<print=FALSE,echo=TRUE>>=
+cgsymbols<-unlist (gsymbols) #returns a character vector
+cgsymbols
+dgsymbols<-data.frame(cgsymbols) #returns a data frame
+dgsymbols
+@
+
+This is an easy to manage structure because each gene corresponds to a gene symbol.
+
+However if we proceed similarly to obtain the GO identifiers:
+<<print=FALSE,echo=TRUE>>=
+GOAcc<-mget(genes,env=hgu95av2GO)
+GOAcc[[1]][1:5]
+@
+we obtain a rather complicated list (BTW, \emph{compare this output with the one you obtain doing GOAcc[1]}).
+This is a list of lists of lists, that is
+\begin{enumerate}
+\item One list for each gene/ID containing
+\item One list for each GO annotation for this gene containing
+\item One list with the GOID, The Ontology and the Evidence Code
+\end{enumerate}
+Indeed the third-level list can also be considered as an instance of a class defined in the \texttt{annotate}
+package: the class \texttt{Goterms}. Type \texttt{? GOTerms}
+to know more about this class.
+
+
+The following code will perform a wise unlist of the \texttt{GOAcc} list
+
+
+<<GOTable, print=FALSE,echo=TRUE>>=
+#
+# Versio millorada (o no?)
+# Enlloc dafegir les files 1 en 1 les crea totes de cop
+#
+x<-0
+numGOterms<-for (i in 1:length(GOAcc)){x<-x+length(GOAcc[[i]])}
+res<- matrix(data = NA, nrow = numGOterms, ncol = 5)
+actualrow<-1
+for (i in 1:length(GOAcc)){
+    if (GOAcc[i]=="NA"){
+      reg<-c(names(GOAcc[i]),gsymbols[i],rep("NA",3))
+    res[actualrow,]<-unlist(reg)
+    actualrow<-actualrow+1}
+    else{
+          for (j in 1:length(GOAcc[[i]])){
+            reg<-c(names(GOAcc[i]),gsymbols[i],
+                GOAcc[[i]][[j]]$GOID,
+                GOAcc[[i]][[j]]$Ontology,
+                GOAcc[[i]][[j]]$Evidence)
+            res[actualrow,]<-unlist(reg)
+            actualrow<-actualrow+1}}}
+rownames(res)=rep(NULL,dim(res)[1])
+res<-as.data.frame(res)
+names(res)<-c("Affy-ID","Gene Symbol", "GOID","Ontology","Evidence")
+@
+
+The resulting table can be printed or saved.
+<<print=FALSE,echo=TRUE>>=
+print(head(res))
+@
+
+The previous section illustrates the fact that using
+annotation (metadata) packages we cane easily obtain \texttt{GO}
+identifiers corresponding to one or more genes. Once we have this
+identifiers we can easily recover other information such as their GO description.
+
+To do this we need the function \texttt{getGOdesc()} included in the library
+\texttt{GO}
+
+<<getGOdesc, print=FALSE,echo=TRUE, eval=F>>=
+stopifnot(require(annotate))
+goid<-as.character(res$GOID)
+desc<-as.character(rep(NA,length(goid)))
+
+for (i in 1:length(goid)){
+    if (!is.na(goid[i])){
+        godsc<-getGOdesc(goid[i],"ANY")
+        if(is.null(godsc)){
+            desc[i]<-"NULL"}
+        else{
+            desc[i]<- Term(godsc[[1]])}}}
+res<-cbind(res, desc)
+@
+
+Separated dataframes for each ontology can be easily filtered out with instructions such as:
+<<print=FALSE,echo=TRUE>>=
+ resMF<-res[res$Ontology=="MF",]
+ resBP<-res[res$Ontology=="BP",]
+ resCC<-res[res$Ontology=="CC",]
+@
+resulting in data frames such as:
+<<print=FALSE,echo=false>>=
+print(head(res))
+print(head(resMF))
+@
+
+You can type \texttt{getGO} to see which functions there are available to extract information from the annotation packages.
+
+\subsection{Other applications of \texttt{annotate}}
+
+Library \texttt{annotate} contains many more environments for relating the probeset identifiers to generic databases.
+The information contained in these annotation environments provides identifiers which are easier to search for in public databases if one wishes to do so. Indeed many important databases are already linked as environments.
+Type \texttt{hgu95av2()} to see which environments are available.
+
+<<print=FALSE,echo=TRUE>>=
+if(dbi){
+  ls("package:hgu95av2.db")
+}else{
+  hgu95av2()}
+@
+
+
+Some examples of the type of annotations that can be retrieved from this annotation package are:
+ \texttt{hgu95av2ACCNUM} mapps probe identifiers and manufacturer (or user) provided public data repository identifiers that are used to map probe ids to Entrez ids and thus other annotation data.
+    Often the values are GenBank accession numbers but sometimes can be UniGene ids, RefSeq ids, or Image clone ids.
+<<print=FALSE,echo=TRUE>>=
+acc <- mget(genes, env = hgu95av2ACCNUM)
+unlist(acc)
+@
+
+\texttt{hgu95av2ENTREZID} mapps probe ids to Entrez ids corresponding to genes represented by the probe ids.
+<<print=FALSE,echo=TRUE>>=
+ll <- mget(genes, env = hgu95av2ENTREZID)
+unlist(ll)
+@
+
+\texttt{hgu95av2SYMBOL} maps probe identifiers to the symbols used to report genes represented by the probe ids.
+<<print=FALSE,echo=TRUE>>=
+sym <- mget(genes, env = hgu95av2SYMBOL)
+unlist(sym)
+@
+
+\texttt{hgu95av2GENENAME} maps probe ids to the ``names'' of genes corresponding to the probe ids.
+Indeed in spite of the name ``gene names'' these are the descriptions used for gene reports.
+<<print=FALSE,echo=TRUE>>=
+gnam <- mget(genes, env = hgu95av2GENENAME)
+x<-unlist(gnam)[1]
+writeLines(strwrap(x, width = 60))
+@
+
+Library \texttt{annotate} contains some functions which perform  the same type of information recovery in a
+more straightforward manner. These are:
+\begin{itemize}
+\item \texttt{getSYMBOL(x, data)}
+\item \texttt{getEG(x, data)}
+\item \texttt{getGO(x, data)}
+\item \texttt{getPMID(x, data)}
+\item \texttt{getGOdesc(x, which)}.
+\end{itemize}
+Instead of calling:
+<<print=FALSE,echo=TRUE>>=
+acc <- mget(genes, env = hgu95av2SYMBOL)
+@
+one can do
+<<print=FALSE,echo=TRUE>>=
+acc <- getSYMBOL(genes, "hgu95av2")
+@
+which gives exactly the same result.
+These functions make use internally of the function \texttt{lookUp(x, data, what)} which can also be used to retrieve
+an item (e.g. gene) from a given environment ("what") in a given package ("data"), that is, equivalently to the two previous instructions one can call:
+<<print=FALSE,echo=TRUE>>=
+acc <- lookUp(genes, "hgu95av2","SYMBOL")
+@
+
+\subsection{Basic GO usage}
+
+In previous section we have seen that typical usage of annotation
+packages includes transforming gene names or probe identifier in
+more complete information. One example of such ``interesting'' informations are GO annotations.
+
+GO annotations are structured informations. They are interrelated
+through the Gene Ontology's DAG structure. What we have obtained
+in our previous search are the \emph{most specific terms}. If we
+wish to learn about what are the ancestors of these terms we need
+to go through the associated sub--graph corresponding to a term or a list of terms.
+
+This can be done in different ways (based in different existing Bioconductor packages)
+that will be illustrated below.
+\begin{itemize}
+\item We can ``go up'' the tree step by step ``looking at'' the parents of a given term and then at the parents of the parents and so on.
+\\ This is done mostly using the \GO \, package.
+\item \GO is mainly an annotation package, containing hardly nothing else but environments.
+Package \texttt{Go\emph{stats}} has been developped to facilitate analysis that require access to \GO. \\
+This package also allows to proceed ``globally''. It contains different types of functions, enabling between other capabilities ...
+\begin{itemize}
+\item To build graphs associated with a gene list.
+\item To calculate distances between graphs or between terms in a graph.
+\item To perform tests to look for most informative terms in a gene list.
+\end {itemize}
+Some of these functions require the use of other packages, specifically oriented to ontologies such as
+\emph{\texttt{ontoTools}}, or more generally to graphs management, such as: \texttt{graph} or \texttt{RBGL}.
+\end{itemize}
+
+\section{Information extraction using annotation packages}
+
+\subsection{Mappings between Entrez and GO}
+
+In previous versions of Bioconductor the GO package contained several environments that
+mapped ``Entrez`'' terms with their corresponding GO identifiers: GOENTREZID, GOALLENTREZID.
+Reverse mappings were also available as GOENTREZID2GO and GOENTREZID2ALLGO mappings.
+
+This mapping was species independent and any gene having Entrez identifier could be recovered
+
+<<geneSample, echo=F>>=
+            require(hgu95av2.db)
+            humanEntrez <- toTable(hgu95av2ENTREZID)[,2]
+            x.man <- sample(humanEntrez,10)
+            require(mouse4302.db)
+            mouseEntrez <- toTable(mouse4302ENTREZID)[,2]
+            x.mouse <- sample(mouseEntrez,10)
+@
+
+With te previous version both gene lists could be recovered from the same mapping
+
+<<oldVersion, eval=F>>=
+require(GO)
+GO.mouse<- mget(x.mouse, env = GOENTREZID2GO)
+GO.man <- mget(x.man, env = GOENTREZID2GO)
+@
+
+Current version does not depend on the \texttt{GO} package which has been deprecated
+Instead there are species specific packages: \texttt{org.XX.eg.db} (``eg'' is for ``entrez gene''))
+which map ``entrez'' identifiers to many other IDs (GO included) on a species basis.
+
+<<newVersion>>=
+GO.mouse.new<- mget(x.mouse, env = org.Mm.egGO)
+GO.man.new<- mget(x.man, env = org.Hs.egGO)
+@
+
+
+\subsection{Mappings to parents, children, ancestors and offspring}
+
+Another group of environments relates one term's GOids with its parents (\texttt{GOXXPARENTS}),
+all its ancestors (\texttt{GOXXANCESTOR}), its children (\texttt{GOXXCHILDREN}), or all its offspring
+(\texttt{GOXXOFFSPRING}).
+
+For instance if you wanted to get the offsprings (not only direct children)
+of a GO term, say "GO:0003700" you would do:
+
+<<getOffspring, print=FALSE,echo=TRUE>>=
+require(GOPkg, character.only=TRUE)
+get("GO:0003700", GOMFOFFSPRING)
+@
+and if you wanted all its ancestors
+<<getAncestors, print=FALSE,echo=TRUE>>=
+get("GO:0003700", GOMFANCESTOR)
+@
+
+We may combine it with previous operations. Imagine we have built the the lists
+\texttt{resMF}, \texttt{resBP} and \texttt{resCC} as in \ref{annotate1}.
+The MF, GO id's corresponding to the first gene in the list are:
+<<getIDs, print=FALSE,echo=TRUE>>=
+MFGOIDs1<-as.character(resMF[resMF$Affy.ID==genes[1],]$GOID)
+MFGOIDs1
+@
+and its ancestors are:
+<<print=FALSE,echo=TRUE>>=
+GOMFANCESTORs1<-unlist(mget(MFGOIDs1, GOMFANCESTOR))
+@
+If we wish to know how many of these correspond to level 2 in the MF ontology we must simply tabulate
+GOMFANCESTORs1 with a factor having all the identifiers that correspond to MF at level 2
+<<print=FALSE,echo=TRUE>>=
+MFLevel2<-as.factor(unlist(mget("GO:0003674", GOMFCHILDREN)))
+# Falta veure com fer la crosstabulacio
+@
+
+
+\subsection{Slicing the ontology at a given level}
+
+Sometimes we may wish to recover all the identifiers at a given level of a given ontology.
+For instance, given a list of terms we may wish to know their distribution in the different
+general terms at a certain (probably high) level such as level 2 (i.e. under MF, or under CC or BP)
+or 3 (under level 2).
+
+These capabilities have been implemented in the \texttt{goProfiles} package and
+the reader is referred to its vignette to see examples of its use.
+
+
+\subsection{Alternative navigation using \texttt{GOstats} functions}
+
+Instead of using these environments directly it is easier to use some existing functions
+such as: \texttt{getGOParents}, \texttt{getGOChildren}, etc., implemented in the \texttt{GOStats} package.
+
+An alternative approach (found in the \texttt{Bioconductor} discussion list)
+can be taken if one uses of some accessor functions defined in the package \texttt{GOstats} described below.
+<<print=FALSE,echo=TRUE>>=
+require(GOstats)
+level2<-unique(getGOChildren("GO:0003674")$"GO:0003674"$Children)
+level3<-character(0)
+for (i in 1:length(level2)) {
+     level3 <- c(level3,getGOChildren(level2[i])[[1]]$Children)
+     }
+level3<-unique(level3)
+length(level3)
+@
+
+These environments could also be used to go up or down the ontology, but this task may be done
+more efficiently using graphs and functions to explore them as discussed in next section.
+
+
+\subsection{The \texttt{goTools} and \texttt{goCluster} packages}
+
+An approach similar to profiling described in the previous subsection has been implemented
+in the package \texttt{goTools}. In this library percentages are calculated relatively to a customized
+``end--node'' list, instead of relatively to a given level of the gene ontology.
+
+The main declared goal of the library is to compare lists of (selected?) genes, or more precisely,
+``affy oligos'' and the program may output, jointly with the percentages, a multiple bars graph for this comparison.
+
+...
+
+\section{Navigating the ontology: Packages \texttt{ontoTools} and \texttt{GOstats}}
+
+Gene ontology information is usually expressed in the form of (directed acyclic) graphs.
+Given a list of genes, the associated terms in each ontology form a subgraph of the ontology which is called
+the \emph{induced subgraph}.
+
+As we have seen in previous sections, given one or more genes it is possible to recover its ancestors in a given ontology.
+These ancestors constitute un unstructured information which may be helpul for certain purposes (such as building profiles),
+This ancestor's list doesn't contain any information about the relation between the GO terms associated with the \emph{query} genes.
+This type of information is contained in the graph induced by the gene list (which may be constituted by one or more genes) and as such
+an alternative way to proceed in Gene-Ontology Analysis is to consider the induced graphs as the starting point for the analysis.
+
+Figure \ref{elgraf1} shows the graph induced by the first gene of the list in example 1.
+
+<<print=FALSE,echo=FALSE, results=hide>>=
+require(GOstats)
+genes<-as.character(read.table(file.path(dataDir, "End2EndProbeList.txt"))$V1)
+gLL<-as.character(getEG(genes,"hgu95av2"))
+graph1<-makeGOGraph(gLL[1],"MF", chip="hgu95av2.db")
+graph2<-makeGOGraph(gLL[2],"MF", chip="hgu95av2.db")
+graph12<-makeGOGraph(gLL[1:2],"MF", chip="hgu95av2.db")
+require(ontoTools)
+toDot(graph1,"elgraf1.dot")
+toDot(graph2,"elgraf2.dot")
+toDot(graph12,"elgraf12.dot")
+@
+
+<<plotGOGraph,fig=T, eval=F>>=
+stopifnot(require(Rgraphviz))
+plot(graph1)
+@
+
+\begin{figure}
+\includegraphics{images/elgraf1}
+\label{elgraf1}
+\caption{Graph induced in the MF ontology by the most
+differentially expressed gene in example 1, with Locuslinkl id=183}
+\end{figure}
+
+\begin{figure}
+\includegraphics{images/elgraf2}
+\label{elgraf2}
+\caption{Graph induced in the MF ontology by the most
+differentially expressed gene in example 1, with Locuslinkl id=183}
+\end{figure}
+
+\begin{figure}
+\includegraphics{images/elgraf12}
+\label{elgraf12}
+\caption{Graph induced in the MF ontology by the most
+differentially expressed gene in example 1, with Locuslinkl id=183}
+\end{figure}
+
+
+There are different approaches that use graphs as the basis for the analysis
+
+Quoting R. Gentleman who ha been one of the main developpers of these approaches
+(\cite{Gentleman:2003a,Gentleman:2004}):
+
+\emph{Another idea that has seen some exploration is the notion of defining
+distances between two genes in terms of the similarity of their GO
+annotations. We explore some of the suggestions and provide some
+guidance for those who would like to explore these ideas}.
+
+It seems reasonable to treat the three ontologies separately. Even
+within an ontology a single gene might be annotated at several GO
+terms. Some mechanisms for dealing with this issue would be helpful.
+For each gene we could define the graph to be that which is induced by
+all GO terms to which the gene is mapped, within the ontology of
+interest. Then use the between graph distances as already described.
+One could define distance as some combination of the annotation
+specific distances. For example, if gene 1 is annotated at 2 terms and
+gene 2 is annotated at three terms there are 6 distances to be
+computed and some functional of these 6 distances will be reported.
+
+There are two basic strategies that have been widely used to define
+distances, or similarities, between genes based on GO annotation. One,
+is to make use of the graph structure that is associated with each
+pair of genes. If the two graphs are very similar then the two genes
+are presumed to also be quite similar. The second general strategy is
+to use the information content in GO as a basis for assigning
+similarity. This is the approach taken by \cite{Lordetal}.
+
+\section{Working with graphs}
+
+The Gene Ontology is sometimes dephined as a ``Directed Acyclic Graph''.
+If we wish to work with semantic similarities or simply if we want to be
+able to compute any kind of distances between graph nodes we need to access
+some implementation the appropriate data structures and algorithms for manipulating graphs.
+
+As in other parts of this work, looking at ``what's in there...'' about graphs shows a huge
+amount of information, either theoretical --maths or computer-science such as described in CRT (2002,\cite{CRT-2002}) or
+Dienstel (1999,\cite{Dienstel-1999})-- or practical mainly
+algorithms and libraries which implement them in most popular languages, such as (...).
+
+In the following we first briefly review some graph concepts that will be used later and then describe some
+implementations and capabilities available in Bioconductor.
+
+\subsection{Review of graph concepts}\label{graphs-review}
+
+       Many kind of problems from the daily life can be solved by a diagram consisting on a set of concepts joined by
+        certain relations. A mathematical abstraction to solve this kind of situations is the idea of a graph which comes
+        from the graph theory.
+
+%        \theoremstyle{plain}
+        \begin{defs}\label{def:graph}
+            A \textbf{graph} is a pair $G=(V,E)$, where $V$ is a set called \textbf{vertex set} whose elements are
+            called \textbf{vertices} (or \textbf{nodes} or \textbf{points}), and
+            $E\subseteq \{e_{ij}=(v_i, v_j): v_i,v_j \in V\}$ is a binary relation on V where a pair $e_{ij}$ is called
+            \textbf{edge} (or \textbf{arcs} or \textbf{lines}), $i,j\in I\subseteq \mathbb{N}$.
+        \end{defs}
+
+        The most important advantage of working with graphs is that it makes possible to have a visual aid of the problem
+        itself. For each vertex $v\in V$ we usually draw a point in the plane and for any $v_i,v_j\in V$ two vertices we
+        join the corresponding points with a line. Thus, using this abstraction is a good way to translate the real life
+        problem into a mathematical form.
+
+%        \theoremstyle{definition}
+        \begin{exam}\label{exam:G1}
+            Let $G_1=(V_1,E_1)$ be a multigraph such that
+            $$V_1=\{v_1,v_2,v_3,v_4,v_5,v_6\} \quad ,\quad E_1=\{e_{13},e_{16},e_{25},e_{34},e_{36}\}$$
+            \begin{figure}[htb]
+                \begin{center}
+                   \includegraphics[width=\textwidth]{images/un_graph1.pdf}
+                \end{center}
+                \caption{Visual representation of the graph $G_1=(V_1,E_1)$}\label{fig:graphG1}
+            \end{figure}
+        \end{exam}
+
+        Note that there is not a unique way of drawing a graph; how these points and lines are drawn is not relevant.
+        The important thought is which pairs of vertices give an edge and which of them do not.
+
+%        \theoremstyle{plain}
+        \begin{defs}\label{def:incadj}
+            Let $v_i,v_i^k\in V$ be $i\in I$, $k\in \mathbb{N}$. Let $e_{ij},e_{ij}^k\in E$ such that
+            $e_{ij}=(v_i,v_j)$ and $e_{ij}^k=(v_i^k,v_j^k)$, $i,j\in I$, $k\in \mathbb{N}$. Then,
+            \begin{enumerate}
+                \item An edge $e_{ij}$ is a \textbf{self-loop} if $v_i=v_j$.
+                \item Edges $e_{ij}^1,e_{ij}^2$ are \textbf{parallel edges} if $v_i^1=v_i^2$ and $v_j^1=v_j^2$.
+                \item An edge $e_{ij}$ is \textbf{incident} on vertices $v_i$ and $v_j$.
+                \item Two vertices $v_i,v_j \in V$ are \textbf{adjacent} (or \textbf{neighbors}) if $\exists e_{ij}\in E$.
+            \end{enumerate}
+        \end{defs}
+
+%        \theoremstyle{plain}
+        \begin{defs}\label{def:simplemult}
+            A graph is called \textbf{simple graph} if neither contains self-loops nor contains parallel edges
+            %(see Fig.\ref{fig:graphG1}).
+            If a graph contain self-loops or contains parallel edges it is called \textbf{multigraph}
+            %(see Fig. \ref{fig:graphG2}).
+        \end{defs}
+%        \theoremstyle{definition}
+        \begin{exam}\label{exam:G2}
+            Let $G_2=(V_2,E_2)$ be a multigraph such that
+            $$V_2=\{v_1,v_2,v_3,v_4,v_5,v_6\} \quad ,\quad E_2=\{e_{13},e_{16},e_{22},e_{25},e_{34},e_{36},e_{36}\}$$
+%            \begin{figure}[htb]
+%                \begin{center}
+%                   \includegraphics[width=\textwidth]{un_graph2.eps}
+%                \end{center}
+%                \caption{Visual representation of the multigraph graph $G_2=(V_2,E_2)$}\label{fig:graphG2}
+%            \end{figure}
+        \end{exam}
+
+%        \theoremstyle{plain}
+        \begin{defs}\label{def:degree}
+            Let $G=(V,E)$ be a graph. The \textbf{order} is the number of vertices of the graph G and is denoted by $|G|$.
+            The \textbf{degree} (or \textbf{valency}) of a vertex $v\in V$ is the number of adjacent of v,
+            \begin{equation}
+                d(v)=|E(v)|.
+            \end{equation}
+        \end{defs}
+
+        In other words, the degree of a vertex is the number of edges which are incident to it.
+        For instance, in graf \ref{exam:G2} the order is $|G|=6$ and the node $v_1$ is $d(v_1)=2$ because their adjacent nodes are $v_3$ and
+        $v_6$.
+
+
+\subsection{Bioconductor packages to work with graphs}\label{Bioconductor.And.Graphs}
+
+There are several libraries that implement graph management functionality in \R\ and Bioconductor.
+\begin{itemize}
+\item \Rpackage{graph} implements some simple graph handling capabilities.
+\item \Rpackage{RBGL} is an interface to the boost C++graph libraries which implement some of the most popular
+graph algorithms such as Breadth and Depth-first search or
+Dijkstra's shortest paths.
+\item \Rpackage{Rgraphviz} Interfaces R with
+the ATT GraphViz library to provide the ability for plotting R
+graph objects from the graph package. It is only available for
+linux/Unix platforms and will not be used here.
+\item \Rpackage{ontoTools} extends the former with some capabilities
+specifically designed to work with ontologies.
+\item \Rpackage{GOstats}
+contains a variety of basic manipulation tools for graphs,
+hypothesis testing and other simple calculations on graphs and the
+GO.
+
+\end{itemize}
+
+The use one will do of these packages to work with ontologies can be thought as follows:
+\begin{itemize}
+\item Use the \Rpackage{graph} to define and manage basic graphs.
+\item If you wish to obtain graphs with GO data or want to combine genomic data and the corresponding GO annotations rely
+on the classes and methods defined in \Rpac{ontoTools}, or \Rpac{GOstats}.
+\item If you plan to do standard graph calculations on any of the graphs defined start by looking at algorithms available
+in the \Rpackage{RBGL} package.
+\item You may visualize what you're doing either with the \Rpackage{Rgraphviz} package or exporting your graphs using the dot language
+(\Rpackage{ontoTools} or \Rpackage{graph} handle this translation) and then rendering them with the standard \Rpackage{graphviz} libraries.
+\end{itemize}
+
+\subsubsection{The \Rpackage{graph} library}
+
+It is implemented using he object--oriented facilities available
+in R, which allow for classes and methods.
+
+A generic (abstract) class -\Robj{graph}- is the basis for implementation graphs. All other graph classes extend this one.
+Between these descendants one finds:
+\begin{itemize}
+\item \Robj{graphNEL}: This is a class of graphs that are represented in terms of nodes and an edge list.
+This is a suitable representation for a graph with a large number of nodes and relatively few edges
+\item \Robj{distgraph}: A class definition for graphs that are based on distances
+\item \Robj{clustergraph}: A cluster graph is a special sort of graph for clustered data.
+Each cluster forms a completely connected subgraph. Three are no edges between clusters.
+\end{itemize}
+
+The easiest way to create a graph from scratch is to instantiate an object of \Robj{graphNEL} class:
+The constructor must receive, as arguments,
+a list of \emph{edges} and a collection of \emph{nodes}.
+Nodes are described through a character vector.
+Edges are described as a \Robj{list} whose elements must be
+lists having the same name as the nodes. Each of these lists may be empty (see node ``A'' in figure \ref{graf1-example})
+or may consist of one ore more numbers, indicating the nodes with which the current node is connected.
+The following instructions create the graph in figure \ref{graf1-example}
+
+\begin{figure}[htbp]
+\begin{framed}
+<<1basicGraph,print=FALSE,echo=TRUE>>==
+    library(graph)
+    edges <-list(A=list(),
+            B=list(edges=1),
+            C=list(edges=1),
+            D=list(edges=c(2,1)),
+            E=list(edges=3),
+            F=list(edges=c(1,3,5))
+            )
+    gR <-new("graphNEL", nodes=LETTERS[1:6], edgeL=edges,
+            edgemode="directed")
+show(gR)
+# plot(gR) hauria de funcionar pero no ho fa
+@
+\label{createsimplegraf}
+\end{framed}
+\caption{Instructions used to create a graph from scratch using the \Rpac{graph} package}
+\end{figure}
+
+
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[width=\textwidth]{images/graf1-example}
+\caption{A simple graph created from scratch with the instructions in figure \ref{createsimplegraf}} \label{graf1-example}
+\end{center}
+\end{figure}
+
+
+
+\section{Gene Enrichment Analysis}
+
+\subsection{Introduction}
+
+\subsubsection{Investigating the biological significance of an experiment}
+
+The results of a microarray experiment usually consist of one or more lists of genes which have been selected according to different possible criteria, let it be for being differentially expressed between conditions, for clustering together in a non supervised analysis or even for having beeen arbitrarily selected based on one user's biological expertise. In any case we may consider these lists of selected genes as given \emph{a priori}.
+
+Once the biologist has the list of genes available she will usually investigate most ``relevant genes'' separately. However it seems obvious that given that genes interact together in biological processes it may also be informative to try to understand the list as a whole. This is often described as finding the \emph{biological significance}\footnote{Although many people use the expression ``biological significance'' it is not clear what does this exactly mean. Or, at least it is not clear that everybody using the term is thinking of the same.
+
+Loosely speaking saying that a list of genes is biological significant may be interpreted as that it means something from the biological point of view, for example the genes are related to the pathologies or phenotypes being investigated. One may easily argue that this does not clarify the meaning of biological significance but, at least, this concept of ``being related'' can be characterized as of ``not being unrelated'', as would happen with a set of randomly selected genes. Such a set would then not be biological significant. Also, from this point of view, it seems clear that the biological significance of the list may/must depend on the characteristic to which the genes are related. The list may be biological significant with respect to some aspects, such as diabetis or apopthosis but not with respect to other, such as growth or calcium methabolism.
+
+The term ``significance'' also suggests some kind of statistical approach or interpretation. In statistics when one says that something is significant it usually means that there is enough discrepancy between this and something else, usually specified by a null hypothesis, so that it may not be attributed to randomness, and as a consequence it is attributed to the fact that the difference is real. Again this raises different issues to be solved, mainly
+(i)\emph{which are the null hypothesis being tested}, and relatedly which reference values are associated to them and (ii) how can one test these hypotheses, which tests may be available for this and how do they relate to each other}
+
+
+A common way to try to answer these questions is to project the list of pre-selected genes
+in the Gene Ontology (GO). The GO is a database containing generic (species-independent) annotations describing Molecular Functions, Biological Processes or Cellular Components associated with each gene.
+It is organized in a hierarchy which relates all terms in successive refinements.
+
+There are different ways to perform GO analysis such as \emph{Enrichment Analyisis} and and \emph{Gene set Analysis}.
+These and other methods may
+differ in their approaches but their ultimate goal is to guide the biological interpretation of the results.
+
+
+\subsection{GO Enrichment analysis}
+
+GO analysis can be performed in several different but related ways.
+\emph{Enrichment analysis}, which is, up to date, the most common approach consists of performing
+statistical tests to determine whether a particular Gene Ontology (GO)
+is over-represented (or under-represented) in the list of differentially expressed genes from the microarray
+experiment.
+
+For example if 10\% of the most differentially expressed genes were associated with the GO term apoptosis
+(GO:0006915), this would seem to be an unusually large proportion of the gene list, given that apoptosis is such a
+specific type of biological process. To determine how much larger than ``usual'' this proportion is, it must be
+compared to the propoprtion of apoptosis-related genes in a reference gene list, which could be the entire set of
+genes on the microarray, or in fact the entire set of genes in the GO database.
+
+This type of analyis can be done with the Bioconductor \Rpackage{GOstats} package.
+\begin{itemize}
+\item It takes as input the ENTREZID identifiers of a set of genes which one wants to study as a whole.
+\item The output of the analysis is the list of categories which appear to be over or underrepresented in each selected set.
+\end{itemize}
+
+Enrichment analyis compares the representation of each GO category
+within the top most differentially expressed genes with the GOs represented by all of the genes on the chip. The test performed is a Hypergeometric test or equivalently a Fisher's exact test which is used to compare the proportion of each GO category in the sample with that of the Universe (the array, the genome, the database....)
+
+\subsubsection{Analysis inputs}
+
+To perform an analysis using the Hypergeometric-based tests, one needs
+to define a \textit{gene universe} and a list of selected genes from the
+universe.  While it is clear that the selected gene list determines to
+a large degree the results of the analysis, the fact that the universe
+has a large effect on the conclusions is, perhaps, less obvious.
+
+For microarray data, one can use the unique gene identifiers assayed
+in the experiment as the gene universe.  However, the presence of a
+gene on the array does not necessarily mean much.  Some arrays, such
+as those from Affymetrix, attempt to include probes for as much of the
+genome as possible.  Since not all genes will be expressed under all
+conditions (a widely held belief is that about 40\% of the genome
+is expressed in any tissue), it may be sensible to reduce the universe
+to those that are expressed.
+
+We will use as gene universe the set of genes that passed the filtering in the pre-processing step, and as gene list the set of genes that we alled as being differentially expressed.
+
+The analysis is based on GO terms obtained from mappings through Entrez identifiers.
+Due to this we map the probes to EntrezID before starting the analysis.
+
+Assume the complete data which have been already normalized and filtered
+have been previously stored in a binary file. We start by loading it into memory
+
+<<processAll, results=H>>=
+processAll=F
+if (processAll){
+  stopifnot(require(affy))
+  stopifnot(require(genefilter))
+  # Read Data
+  my.targets <- read.AnnotatedDataFrame(file.path(dataDir,targetsFile),  header = TRUE, row.names = 1)
+  my.data <- ReadAffy(filenames=file.path(dataDir, rownames(pData(my.targets))),
+                    phenoData=my.targets)
+  # Normalize data using standard parameters
+  eset_rma <- rma (my.data)
+  # Filter data by variability
+  sds<- apply(exprs(eset_rma), 1, sd)
+  variability_threshold <- quantile (sds,0.9)
+  f2 <-function (x) if (sd(x)< variability_threshold) return(FALSE) else return(TRUE)
+  ffun2<-filterfun(f2)
+  which2 <- genefilter(exprs(eset_rma), ffun2)
+  # sum (which2)
+  eset_rma_filtered <-eset_rma[which2,]
+  save(eset_rma_filtered,
+      file=file.path(dataDir, paste("celltypes", "normalized.rma.Rda", sep="-")))
+}else{
+  load(file=file.path(dataDir, paste("celltypes", "normalized.rma.Rda", sep="-")))
+}
+@
+
+
+<<loadData>>=
+setwd(workingDir)
+stopifnot(require(Biobase))
+stopifnot(require(annotate))
+load(file = file.path(dataDir, paste("celltypes", "normalized.rma.Rda",sep = "-")))
+my.eset <- eset_rma_filtered
+rm(eset_rma_filtered)
+@
+
+<<selectedProbes>>=
+probes <- read.table(file = file.path(dataDir,"ProbesList.txt"), skip = 1, sep = " ", as.is = T)
+probes <- as.character(probes[, -1])
+probes[1:10]
+@
+
+<<probes2EntrezID>>=
+stopifnot(require(mouse4302Pkg, character.only = T))
+
+myenvirENTREZID<-eval(parse(text = paste("mouse4302","ENTREZID",sep="")))
+selectedEntrez <- unlist(mget(probes, env = myenvirENTREZID))
+geneUniverse <- unlist(mget(rownames(exprs(my.eset)),
+     env = myenvirENTREZID))
+selectedEntrez <- selectedEntrez[!is.na(selectedEntrez)]
+geneUniverse <- geneUniverse[!is.na(geneUniverse)]
+@
+
+It is worth noting that the effect of increasing the universe size
+with genes that are irrelevant to the questions at hand, in general,
+has the effect of making the resultant $p$-values look more
+significant.
+
+In order to perform a GO based analysis we need to use only probes
+that have mappings in EntrezID and in the GO.
+See the GOStats vignette to see how to deal with this point.
+
+\paragraph{Test directionality}
+A detail often omitted from GO association analyses is the fact that
+the $t$-test, and most similar statistics, are directional.  For a
+given gene, average expression might be higher in one group whereas for a
+different gene it might be the other group that shows the increased
+expression.  By only looking at the $p$-values for the test
+statistics, the directionality is lost.  The danger is that an
+association with a GO category may be found where the genes are not
+differentially expressed in the same direction.  One way to tackle
+this problem is by separating the selected gene list into two lists
+according to direction and running two analyses.  A more elegant
+approach is the subject of further research.
+
+\subsubsection{Parameters}
+
+The main interface to the Hypergeometric tests,
+\Rfunction{hyperGTest}, takes a single parameter object as its
+argument. This argument is an instance of class
+\Rclass{GOHyperGParams}.  Using a parameter class instead of
+individual arguments makes it easier to organize and execute a series
+of related analyses.
+
+A parameter is created by specifying the gene list, the
+universe, the name of the annotation data package, and the GO ontology
+we wish to interrogate.
+
+In addition, users can specify a
+$p$-value cutoff, a flag to indicate whether the conditional
+Hypergeometric calculation should be used, and indicate whether the
+test should evaluate over or under-representation of GO terms.
+
+<<>>=
+stopifnot(require(GOstats))
+hgCutoff <- 0.001
+params <- new("GOHyperGParams",
+              geneIds=unique(selectedEntrez),
+              universeGeneIds=unique(geneUniverse),
+              annotation="mouse4302.db",
+              ontology="BP",
+              pvalueCutoff=hgCutoff,
+              conditional=FALSE,
+              testDirection="over")
+@
+
+
+\subsubsection{Computation and output}
+
+The \Rfunction{hyperGTest} function provides an implementation of the
+commonly applied Hypergeometric calculation for over or
+under-representation of GO terms in a specified gene list.  This
+computation ignores the structure of the GO terms, treating each term
+as independent from all other terms.
+
+The \Rfunction{hyperGTest} function returns an instance of class
+\Rclass{GOHyperGResult}.  Printing the result at the R prompt provides
+a brief summary of the test performed and the number of significant
+terms found.
+
+
+<<hgParams>>=
+hgOver <- hyperGTest(params)
+conditional(params) <- TRUE
+hgCondOver <- hyperGTest(params)
+hgOver
+@
+
+The \Rclass{GOHyperGResult} instance returned by
+\Rfunction{hyperGTest} contains the $p$-value, odds ratio, expected
+gene count, and actual gene count for each term tested along with the
+vector of gene identifiers annotated at each term.
+
+It is also
+possible to retrieve a \Rclass{graph} instance representing the GO DAG
+for further computation.
+
+Calling
+\Rfunction{summary} on the result produces a \Robject{data.frame}
+summarizing the results which can optionally be limited to a
+user-specified minimum $p$-value and/or minimum gene count for the
+terms.  To make it easy for non-technical users to review the results,
+the \Rfunction{htmlReport} function generates an HTML file that can be
+viewed in any web browser.
+
+<<TestReport>>=
+htmlReport(hgOver, file=file.path(dataDir,"ALL_hgco.html"))
+@
+
+
+\subsubsection{Plotting the results}
+
+It is possible to plot the resuls of the GO analysis using the graph facilities
+available in Bioconductor.
+
+First some auxiliary functions are needed
+
+To get the significant genes ...
+
+<<plotCategs>>=
+sigCategories <- function(res, p) {
+    if (missing(p))
+      p <- pvalueCutoff(res)
+    pv <- pvalues(res)
+    goIds <- names(pv[pv < p])
+    goIds
+}
+@
+
+To obtain the graph from the analysis ...
+
+<<getGraphs>>=
+getMaxConnCompGraph <- function(hgOver, hgCondOver) {
+    ##uGoDagRev <- ugraph(goDag(hgOver))
+    sigNodes <- sigCategories(hgOver)
+    ##adjNodes <- unlist(adj(uGoDagRev, sigNodes))
+    adjNodes <- unlist(adj(goDag(hgOver), sigNodes))
+    displayNodes <- unique(c(sigNodes, adjNodes))
+    displayGraph <- subGraph(displayNodes, goDag(hgOver))
+    cc <- connComp(displayGraph)
+    ccSizes <- listLen(cc)
+    ccMaxIdx <- which(ccSizes == max(ccSizes))
+    ccMaxGraph <- subGraph(cc[[ccMaxIdx]], displayGraph)
+    ccMaxGraph
+}
+@
+
+To plot the resulting graph...
+
+<<plotGraphFunction>>=
+coloredGoPlot <- function(ccMaxGraph, hgOver, hgCondOver) {
+    nodeColors <- sapply(nodes(ccMaxGraph),
+                         function(n) {
+                             if (n %in% sigCategories(hgCondOver))
+                               "dark red"
+                             else if (n %in% sigCategories(hgOver))
+                               "pink"
+                             else
+                               "gray"
+                         })
+    nattr <- makeNodeAttrs(ccMaxGraph,
+                           label=nodes(ccMaxGraph),
+                           shape="ellipse",
+                           fillcolor=nodeColors,
+                           fixedsize=FALSE)
+    plot(ccMaxGraph, nodeAttrs=nattr)
+}
+@
+
+
+Figure \ref{GO-graph} shows the graph obtained by the following call:
+
+<<coloredPlot, fig=T, eval=F>>=
+stopifnot(require(Rgraphviz))
+maxConnCompGraph <- getMaxConnCompGraph (hgOver, hgCondOver)
+coloredGoPlot (maxConnCompGraph, hgOver, hgCondOver)
+@
+
+
+\begin{figure}[htbp]
+\begin{center}
+%\includegraphics{images/coloredGoPlot.jpg}
+\caption{GO subgraph associated with the analysis}
+\end{center}
+\end{figure}
+
+\subsection{graphs and the GO}
+
+Gene ontology information is usually expressed in the form of (directed acyclic) graphs.
+Given a list of genes, the associated terms in each ontology form a subgraph of the ontology which is called  the \emph{induced subgraph}.
+
+As we have seen in previous sections, given one or more genes it is possible to recover its ancestors in a given ontology.
+These ancestors constitute an unstructured information which may be helpul for certain purposes (such as building profiles),
+This ancestor's list doesn't contain any information about the relation between the GO terms associated with the \emph{query} genes.
+This type of information is contained in the graph induced by the gene list (which may be constituted by one or more genes) and as such
+an alternative way to proceed in Gene-Ontology Analysis is to consider the induced graphs as the starting point for the analysis.
+
+Figure \ref{elgraf1} shows the graph induced by the first gene of the list in example 1.
+
+<<goGraphs,eval=T>>=
+# selectedEntrez
+graphBP1<-makeGOGraph(selectedEntrez[1],"BP", chip="mouse4302.db")
+graphBP2<-makeGOGraph(selectedEntrez,"BP", chip="mouse4302.db")
+require(ontoTools)
+toDot(graphBP1,"elgrafBP1.dot")
+toDot(graphBP2,"elgrafBP2.dot")
+@
+
+\begin{figure}
+\includegraphics{images/elgrafBP1}
+\label{elgrafBP1}
+\caption{Graph induced in the BP ontology by the most
+differentially expressed gene in example 2}
+\end{figure}
+
+\begin{figure}
+%\includegraphics{images/elgrafBP2}
+\label{elgrafBP2}
+\caption{Graph induced in the BP ontology by genes called
+differentially expressed gene in example 2}
+\end{figure}
+
+\bibliography{researchproj}
+
+\end{document}

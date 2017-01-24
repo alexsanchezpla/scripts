@@ -56,7 +56,7 @@ Usual input/output from this type of analysis may be:
 The code in the following sections illustrates some examples on how one could do these analyses (obviously this can always be improved). Because one of the goals of this document is to serve as the basis for an interactive document the examples distinguish the parameters from the execution of each call.
 
 
-### Setting the environment
+## Setting the environment
 
 ```{r setDirs}
 workingDir <- getwd()
@@ -65,30 +65,19 @@ codeDir <- file.path(workingDir, "Rcode")
 resultsDir <- file.path(workingDir, "results")
 setwd(workingDir)
 ```
-```{r}
-library(httr)
-set_config(
-  use_proxy(url="conf_www.ir.vhebron.net", port=8080)
-)
-```
 
 ```{r loadpackages}
-installifnot <- function(pckgName){
-if (!(require(pckgName, character.only = TRUE))) {
-  install.packages(pckgName)
-  }
-}
-installBiocifnot <- function(pckgName){
-if (!(require(pckgName, character.only = TRUE))) {
-  source("http://Bioconductor.org/biocLite.R")
-  biocLite(pckgName)
-  }
-}
+# source("https://raw.githubusercontent.com/miriamMota/scripts/master/installifnot.R")
+source('E:/Dropbox (VHIR)/Scripts/usefulFunctions/installifnot.R')
+
 installifnot("beeswarm")
 installifnot("devtools")
-source(file.path(codeDir,"plotPCA2.R"))
+installifnot("pROC")
 # install_github(paste('alexsanchezpla/scripts/Rpackages/', "plotPCA2", sep="")) # 
-# install_github(paste('alexsanchezpla/scripts/Rpackages/', "boxplotWithDots", sep="")) # 
+# SI EN EL VHIR --> proxy=TRUE, ELSE proxy=FALSE
+# installGitifnot("alexsanchezpla/scripts/Rpackages/","plotPCA2", force.install = TRUE, proxy=TRUE)
+# installGitifnot("alexsanchezpla/scripts/Rpackages/","boxplotWithDots", force.install = TRUE, proxy=TRUE)
+source(file.path(codeDir, "doROC.R"))
 if(!(require(printr))) {
   install.packages(
     'printr',
@@ -98,11 +87,11 @@ if(!(require(printr))) {
 }
 ```
 
-## Basic analyses
+# Basic analyses
 
-### Example inputs
+## Example inputs
 
-For simplicity we have downloaded and stored in our `dades` directory the three input files mentioned above.
+For simplicity we have downloaded and stored in our `data` directory the three input files mentioned above.
 
 ```{r}
 fileName   <- "Datos.Normalizados.Filtrados.csv2"
@@ -118,17 +107,17 @@ targetsFileName <- "targets.txt"
 SEP="\t"
 DEC="."
 targets <- read.table(file.path(dataDir, targetsFileName), head=TRUE, sep=SEP, dec=DEC)
-head(targets)
+head(targets, n=15)
 
 topTableFileName <- "ExpressAndTop_AvsB.csv2"
 SEP=";"
 DEC=","
 topTab <-  read.table(file.path(dataDir, topTableFileName), 
                       head=TRUE, sep=SEP, dec=DEC, row.names =1)
-head(topTab[,1:9])
+head(topTab[,1:6])
 ```
 
-### Exploring a single gene (1): Locating the gene
+## Exploring a single gene (1): Locating the gene
 
 If one wants to work with the expression values -or the analysis values- of a given gene one must be able to locate it in the table containing these values. 
 
@@ -150,7 +139,7 @@ if (length(geneIndex) > 0)
 head(myExpres[probesetName,])
 ```
 
-### Exploring a single gene (2): Drawing plots
+## Exploring a single gene (2): Visualizations
 
 Consider gene `FOXA1` the first one in the top table.
 
@@ -160,8 +149,7 @@ geneName <- "FOXA1"
 geneIndex<- grep(geneName, topTab$SymbolsA)
 if (length(geneIndex) > 0)
   probesetName <- rownames(topTab)[geneIndex]
-whichExpres<- myExpres[probesetName,]
-whichExpres <- as.double(whichExpres)
+whichExpres<- as.numeric(myExpres[probesetName,])
 whichGene <- which(rownames(myExpres)==probesetName)
 whichInTopTab <- which(rownames(topTab)==probesetName)
 
@@ -170,38 +158,54 @@ whichInTopTab <- which(rownames(topTab)==probesetName)
 # whichExpres
 ```
 
-Another parameter that has to be set is the covariate that is used to define the groups.
+### Comparing expressions across group levels
+
+Another parameter that has to be set is the covariate that is used to define the groups. This may be "Groups" or "Apocrine.grade"
+
 ```{r}
-groupNames <- unique(targets$Group)
 lev <- targets$Group
-desc <- paste("logFC=", round(topTab$logFC[whichInTopTab],3), ", p-val=",
-              round(topTab$P.Value[whichInTopTab],6),
-              ", Adj-p=", round(topTab$adj.P.Val[whichInTopTab],6), sep="")
+groupsName <- "Group"
+groupLabels <- unique(targets$Group)
+desc <- paste ("grouped by: ", groupsName, sep="")
+
+lev2 <- targets$Apocrine.grade
+groupsName2 <- "Apocrine.grade"
+groupLabels2 <- unique(targets$Apocrine.grade)
+desc2 <- paste ("grouped by: ", groupsName2, sep="")
 ```
 
-We may plot the expression of the selected gene for each group. This can be done using boxplots, dotplots or both plots overimposed.
+We may plot the expression of the selected gene for each group. This can be done using boxplots, dotplots or both plots overimposed as available in function \texttt{boxplotWithDots}.
+
 
 ```{r}
 require(beeswarm)
+require(pROC)
 opt<- par(mfrow=c(2,2)) # These calls should be turned into functions
 beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
          main=paste(geneName, desc, sep="\n"), labels=groupNames) 
-boxplot(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
-         main=paste(geneName, desc, sep="\n"), labels=groupNames)  
 beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
          main=paste(geneName, desc, sep="\n"), labels=groupNames) 
 boxplot(whichExpres~lev, add = T, names = c("","",""), col="#0000ff22")
+beeswarm(whichExpres~lev2, ylab="Expression", xlab="Groups", pch=13,
+         main=paste(geneName, desc2, sep="\n"), labels=groupNames2) 
+beeswarm(whichExpres~lev2, ylab="Expression", xlab="Groups", pch=13,
+         main=paste(geneName, desc2, sep="\n"), labels=groupNames2) 
+boxplot(whichExpres~lev2, add = T, names = c("","","",""), col="#0000ff22")
 par(opt)
 ```
 
 In this case it is better to only plot the points
 
+### ROC curves
+
+Another common plot are ROC curves which give us an idea of \emph{how good} is the expression of a gene to distinguish between two groups. Function `doROC` encapsulates the process of building and drawing a basic ROC curve using the `pROC` package. more information is available in the package help.
+
 ```{r}
-beeswarm(whichExpres~lev, ylab="Expression", xlab="Groups", pch=13,
-         main=paste(geneName, desc, sep="\n"), labels=groupNames)  
+resROC <- doROC (frml = lev ~ whichExpres, titol = desc, cexMain=0.9)
 ```
 
-### Looking at genes in pairs
+
+## Looking at genes in pairs
 
 We may want to see if the expression of the first three genes FOX1, VGLL1, SPDEF is related.
 
@@ -247,18 +251,39 @@ pairs(t(whichExpres), upper.panel = panel.cor)
 ```
 
 
-### A PCA plot
+## A PCA plot
 
 Principal components analysis is very useful to detect natural or technical groups (batches) in data.
 
 ```{r unPCA}
+require(plotPCA2)
 x <- myExpres
 plotPCA2(X = x, colors = as.integer(targets$Group) + 1,  
          labels= targets$SampleIDs, transpose = TRUE)
 legend('topright', c("A", "B", "L"), pch=1,  col= unique(as.integer(targets$Group)) + 1, bty='n')
 ```
 
-### And so on ...
+## Analyzing _selected_ groups of genes 
+
+Very often, post analyses are made on a list of genes which have been selected either by their biological relevance or because they verify some specific filtering condition.
+
+For example imagine we wish to explore the most differentially expressed genes in the example topTable so we decide to select those genes that have an adjusted p-value of less than 0.001 and a minimum fold change of 2.
+
+This selection can be done manually or using ad-hoc specific functions as described in the `geneLists` package [https://github.com/alexsanchezpla/scripts/tree/master/Rpackages/geneLists](https://github.com/alexsanchezpla/scripts/tree/master/Rpackages/geneLists).
+
+```{r}
+selectedTab<- topTab[abs(topTab$logFC)> 2 & topTab$adj.P.Val< 0.001,]
+dim(selectedTab)
+head(selectedTab)
+```
+
+The identifiers in the `selectedTab` object can now be used in different ways
+
+- One can use the `Entrezs` identifiers to do some type of Gene Enrichment Analysis as described in the document 
+- One can use the probeset names (the topTable rownames) to select the same rows in the expression matrix and perform some type of analysis such as a heatmap on the selected subset of genes.
+
+Both possibilities are described in the final sections of the document [https://github.com/alexsanchezpla/scripts/blob/master/Exemple_Analisis_BioC/EjemploAnalisisMicroarrays.pdf](https://github.com/alexsanchezpla/scripts/blob/master/Exemple_Analisis_BioC/EjemploAnalisisMicroarrays.pdf).
+
 
 
 

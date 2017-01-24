@@ -255,7 +255,10 @@ scoreGenesMat2 <- function(mets, expres,
     xVec<- mets[theGene,]
     yVec<- expres[theGene,]
     geneGrid <- calcFreqs(xMet=xVec, yExp=yVec, x1=x1, x2=x2,
-                          y1=y1, y2=y2, percY1=percY1, percY2=percY1)
+                          y1=y1, y2=y2, percY1=percY1, percY2=percY2)
+    # TRACE
+    show(geneGrid)
+    # TRACE
     binSc <-  binScore2 (geneGrid, minmaxCounts)
     scores[gene, "logicSc"] <- binSc
     numSc <- numScore (geneGrid, aWeightM=aWeightM)

@@ -1,0 +1,49 @@
+---
+title: "Materials d'Introduccio a l'analisi funcional"
+author: "Alex Sanchez"
+date: "24 de desembre de 2016"
+output:
+  html_document:
+    theme: united
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, cache=FALSE,
+                      echo=TRUE, warning=FALSE, message=FALSE, results ='markup')
+options(warn=-1)
+```
+
+# LLista d'arxius amb material-exemples d'analisi funcional
+
+Recentment he organitzat alguns materials amb casos, exemples o aplicacions d'analisi funcional. Cadascu conte alguna cosa interessant i li falta alguna cosa que tene  d'altres.
+
+De moment els he reunit tots i poso aquest índex per enrecordar-me del que hi ha a cadascú.
+
+- `AnalisiFuncional.Rnw`: Un document (.Rnw) amb estructura de tutorial que ho vol agrupar tot. Està incomplert.
+- `AnIntro2FunctionalAnalysis.Rmd`: Un arxiu Rmarkdown del curs pel BiB. Conté una primera part centrada en anotacions (Entrez, Conversions, GO) i una breu intoduccio al GOEnrichment fet amb topGO
+- `Integrative_GSEA_Analysis_V2.Rnw`: Arxiu .Rnw d'analisi per la Teresa Garcia. Conté un exemple de conversio d'identificadors amb "select" (com s'ha de fer) i aplicacions de l GSEA i del GSEA integratiu.
+- `simpleGOAnalysis.R`: Un exemple improvisat pel curs de bioinformàtica (BBR-2016-2). Conté una ràpida conversió d'identificadors (al vell estil, millorable) i un GOEnrichment fet amb GOstats.
+- `OntoAnalysis.Rnw`: Una primera versió de fa anys que tractava de com manegar informació de la GO
+- `Talk-Integrating Omics Data using GeneSets.html`: Seminari sobre IntegrativeGene Set Analysis
+- 
+- `GSAAnalysis-2016-12.Rnw`: Arxiu d'analisi per al Francesc Moreso. Aplica  els quatre mètodes de GSA.
+
+Podem resumir-ho en una taula:
+<!-- 
+Aquesta taula l'he fet amb un generador de taules de Markdown disponible a:
+http://www.tablesgenerator.com/markdown_tables
+No nomes es una birgueria sino que permet descarregar les taules. La de sota es troba a l'arxiu: GSEAReports.tgn en el mateix directori que aquest arxiu
+--> 
+|                                                                      |     Anot     |    Anot    |    Anot   |   ORA   |  ORA  |    Vis   | ORA   |   compare  | GSEA |     GSEA    |  GSEA |   GSEA   |   GSEA   | Netw  | Netw |
+|----------------------------------------------------------------------|:------------:|:----------:|:---------:|:-------:|:-----:|:--------:|-------|:----------:|:----:|:-----------:|:-----:|:--------:|:--------:|-------|------|
+|                                                                      | gLists filt. | gIDs conv. | GO Terms  | GOstats | topGO | GO Graph | DAVID | goProfiles |  GSA | naif (Wilc) | ROAST | naif (t) | Integrat | FGNet | IPA  |
+| Analisi Funcional.Rnw                                                |     X, R     |    X, R    |           |   X, R  |  x, R |    ,R    |       |            | x, R |             |       |          |          |       | x    |
+| AnIntro2FunctionalAnalysis.Rmd                                       |     X, R     |    x, R    |    x, R   |         |  x, R |    ,R    |       |            |      |             |       |          |          |       |      |
+| Integrative_GSEA_Analysis_V2.Rnw (**falta el GSEA integratiu!**)     |              |    x, R!   |           |    ,R   |       |          |       |     ,R     |      |             |       |          |          |       |      |
+| simpleGOAnalysis.R                                                   |              |     ,R     |           |    ,R   |       |          |       |            |      |             |       |          |          |       |      |
+| OntoAnalysis Revisited (2016).Rnw (**Exemples bons pero antiquats**) |              |    x, R    |    X, R   |   x, R  |       |   X, R   |       |            |      |             |       |          |          |       |      |
+| Talk-Integrating Omics Data using GeneSets.html                      |              |            |           |   x, R  |       |          |       |            |      |     x, R    |       |          |     x    |       |      |
+| GSEAmadeSimple201701.Rnw                                             |              |            |           |         |       |          |       |            | x, R |     x, R    |  x, R |   x, R   |          |       |      |

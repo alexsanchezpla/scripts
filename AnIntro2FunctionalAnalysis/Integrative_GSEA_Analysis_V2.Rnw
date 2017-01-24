@@ -1,0 +1,396 @@
+\documentclass{article}
+\usepackage{underscore}
+\usepackage[utf8]{inputenc}
+\usepackage{longtable}
+\usepackage[margin=1in]{geometry}
+%\usepackage[spanish]{babel}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+% En la versio 2 he tret l'integrative GSEA perque l'he de fer sense aplicar-hi tota la GO
+
+\begin{document}
+%\SweaveOpts{concordance=TRUE}
+
+\title{An integrative study on the molecular characterization of\\
+brain tissue after ischemic stroke.
+\\ Proteomic analysis.  Part III: Biological significance analysis}
+\author{Ricardo Gonzalo$\sp 1$, Ferran Brians\'o$\sp 1$ and Alex S\'anchez$\sp {,2}1$}
+\date{$\sp 1$Statistics and Bioinformatics Unit (VHIR)\\
+ $\sp 2$ Statistics Department. University of Barcelona}
+
+\maketitle
+
+\tableofcontents
+
+<<echo=FALSE, message=FALSE, results='hide'>>=
+# include this code chunk as-is to set options
+options(width=80, warn=0, digits=2)
+opts_chunk$set(comment=NA, prompt=TRUE, tidy=FALSE, fig.width=7, fig.height=7,echo=FALSE, message=FALSE)
+options(scipen=100)
+if(!require(knitr)) install.packages("knitr")
+source("https://raw.githubusercontent.com/miriamMota/scripts/master/installifnot.R")
+
+# options(java.parameters = "-Xmx4g" )
+# if(!require(XLConnect)) install.packages("XLConnect")
+# if(!require(coin)) install.packages("coin")
+installBiocifnot("annotate")
+installBiocifnot("limma")
+installBiocifnot("hta20sttranscriptcluster.db")
+installBiocifnot("Homo.sapiens")
+installBiocifnot("KEGG.db")
+installBiocifnot("GOstats")
+installBiocifnot("goProfiles")
+if (!(require(VennDiagram))) install.packages("VennDiagram")
+if(!(require(printr))) {
+  install.packages(
+    'printr',
+    type = 'source',
+    repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+  )
+}
+@
+
+\section{Introduction}
+
+This document describes an integrative Gene Set Expression Analysis performed on the gene and protein datasets associated with the simple ("Infarcted vs Contralateral") comparison.
+
+Previous analyses, performed elsewhere, have provided:
+\begin{itemize}
+  \item A gene expression dataset.
+  \item A protein dataset.
+  \item A list of differentially expressed genes.
+  \item A list of differentially expressed proteins.
+\end{itemize}
+
+Single-type biological significance analysis can be done based on differentially expressed features (Gene Enrichment Analysis) or based on the whole dataset (Gene Set Enrichment Analysis). 
+
+Integrative biological significance analysis can be done by
+\begin{itemize}
+  \item First doing separate analyses that are combined later
+  \item Start with the integrative analysis
+\end{itemize}
+
+\section{Data for the analysis}
+
+The data for the integrative analysis are the normalized gene and protein expression matrices that have been prepared elsewhere.
+
+First of all we have to match them on a row-by-row and column-by-column basis and annotate them with the appropriate common identifiers.
+
+<<setDirectories>>=
+# En RSTudio comencem per fer:
+# Menu: "Session"-> Set working directory " -> "To source file location"
+workingDir <- getwd()
+resultsDir <- file.path(workingDir, "results")
+dataDir <- file.path(workingDir, "dades")
+@
+
+
+<<loadData>>=
+if (!exists("protDataBs19")) 
+  load(file=file.path(dataDir, "proteoDataBs19.Rda"))
+protExpB <- normLogBs19
+geneExpB <- read.table(file.path(dataDir, "geneX.FF.normalized.filtered.csv"), sep=";", dec=",", head=TRUE, row.names=1)
+symbolsGeneExpB <- geneExpB[,1]
+if (ncol(geneExpB)> 12 )  geneExpB <- as.matrix(geneExpB[,-1])
+head(geneExpB)
+data.frame(genes=colnames(geneExpB), prots=colnames(normLogBs19))
+@
+
+Samples in protein and gene expression datasets have different names and are sorted differently.
+We re-arrange the columns and change their names so that they match each other.
+
+<<reorderColumns>>=
+genes<-geneExpB; rm(geneExpB)
+prots <-normLogBs19[,c(7:12,1:6)]; rm(normLogBs19)
+data.frame(genes=colnames(genes), prots=colnames(prots))
+grup<- substr(colnames(genes),7,8)
+sex <- substr(colnames(genes),5,5)
+id <-  substr(colnames(genes),1,3)
+newName <- paste(grup, sex, id, sep=".")
+data.frame(newNames =newName, oldGeneNames=colnames(genes), oldProtNames=colnames(prots))
+colnames(genes) <-colnames(prots)<- newName
+@
+
+\subsection{Looking for common identifiers between genes and proteins}
+
+For the integrative analysis to be possible we need a common identifier for both genes and proteins.
+We obtain thre identifiers for all features: \texttt{Entrez} identifiers, \texttt{Gene Symbol} and \texttt{Uniprot} code.
+
+<<prepareGenes>>=
+require(annotate)
+require(hta20sttranscriptcluster.db)
+geneTranscripts <- rownames(genes)
+geneSymbols0 <- as.character(symbolsGeneExpB)
+geneEntrezs <- getEG(geneTranscripts, "hta20sttranscriptcluster")
+head(geneEntrezs); length(geneEntrezs)
+geneSymbols <- getSYMBOL(geneTranscripts, "hta20sttranscriptcluster")
+head(geneSymbols); length(geneSymbols)
+geneUniprot <- lookUp(geneTranscripts, "hta20sttranscriptcluster", "UNIPROT")
+geneUniprot <- lapply(geneUniprot, function (l) paste(l, collapse="//"))
+head(geneUniprot); class(geneUniprot); length(geneUniprot); length(unlist(geneUniprot)); 
+geneUniprot <- unlist(geneUniprot)
+geneAnots <- data.frame(Entrezs=geneEntrezs, Symbols=geneSymbols, Uniprot=geneUniprot); 
+head(geneAnots);dim(geneAnots)
+annotatedExpres <- cbind(geneAnots, genes)
+head(annotatedExpres)
+write.csv2(annotatedExpres, file.path(dataDir, "annotatedExpress.csv"))
+@
+
+Proteins are already labelled with their Uniprot identifiers so we need to add the Entrez and Gene Symbol identifiers.
+
+<<prepareprots>>=
+require(Homo.sapiens) # require(hta20sttranscriptcluster.db)
+keytypes(Homo.sapiens) # keytypes(hta20sttranscriptcluster.db)
+# head(prots)
+tstKey <- rownames(prots)
+protAnots<- select(Homo.sapiens, keys = tstKey, keytype = "UNIPROT", columns = c("ENTREZID","SYMBOL"))
+dim(prots)
+dim(protAnots)
+@
+There are 1850 distinct UNIPROT identifiers, but these correspond to 1875 gene symbols.
+
+We can check which are the genes/proteins that match between the two datasets
+
+<<checkCommon>>=
+protNames <-rownames(prots); length(!is.na(protNames))
+protsInGeneAnots <- protNames %in% as.character(geneAnots$Uniprot); sum(protsInGeneAnots)
+commonProtsGenes <- protNames[protsInGeneAnots]; length(commonProtsGenes)
+commonProtAnots<- select(Homo.sapiens, keys = commonProtsGenes, keytype = "UNIPROT", columns = c("ENTREZID","SYMBOL"))
+length(unique(commonProtAnots$UNIPROT))
+length(unique(commonProtAnots$SYMBOL))
+@
+
+There are no duplicates in these datasets.
+
+The Protein and the expression dataset share \Sexpr{length(commonProtsGenes)}. This will be refined later but at the moment we start by studying these.
+
+\subsection{Creating common-rows/common-columns datasets}
+
+<<commonValues>>=
+commonProts <- prots[commonProtsGenes, ]; dim(commonProts)
+commonProts<- commonProts[order(rownames(commonProts)),]
+head(commonProts)
+commonGenes <- annotatedExpres[annotatedExpres$Uniprot%in%commonProtsGenes,]
+commonGenes<- commonGenes[order(commonGenes$Uniprot),]; dim(commonGenes)
+dupNames <- which(duplicated(commonGenes$Uniprot))
+if(length(which(duplicated(commonGenes$Uniprot))) > 0) commonGenes <- commonGenes[-dupNames,]
+dim(commonGenes)
+rownames(commonGenes) <- commonGenes$Uniprot
+if(dim(commonGenes)[2]> 12) 
+  commonGenes <- commonGenes[,-c(1:3)]
+@
+
+We have used UNIPROT names for both datasets, but for GSEA analysis it is better to rely on ENTREZID
+<<inCommonAtLast>>=
+data.frame(colnames(commonGenes), colnames(commonProts))
+head(commonGenes); dim(commonGenes)
+head(commonProts); dim(commonProts)
+sum(rownames(commonProts)!=rownames(commonGenes))
+@
+
+After the preprocessing performed we have two datasets with the same row and column names, one containing normalized gene expression values and the other normalized protein expression values.
+
+<<changeIDs4GSEA>>=
+tstKey <- rownames(commonProts)
+protAnots<- select(Homo.sapiens, keys = tstKey, keytype = "UNIPROT", columns = c("ENTREZID"))
+rownames(commonGenes)<-rownames(commonProts)<-protAnots[,"ENTREZID"]
+head(commonGenes); dim(commonGenes)
+head(commonProts); dim(commonProts)
+groupVar <- as.factor(substr(colnames(commonProts), 1,2))
+save(commonGenes, commonProts, groupVar, file=file.path(dataDir, "commonGenesProts.Rda") )
+@
+
+\section{Reviewing individual analyses}
+
+\subsection{Selection of differentially expressed features}
+
+Although already performed elsewhere it is straightforward to do a quick differential expression analysis on each dataset to look for differentially expressed genes or proteins.
+
+<<quickLimma>>=
+quickLimma <- function (expres, groupingVar, maxGenes=NULL, fdrThreshold=0.05, adjustMethod="BH", minLogFC=1)
+{
+  require(limma)
+  design<- model.matrix(~ 0 + factor(groupingVar,levels=unique(groupingVar)))
+  colnames(design) <- unique(groupingVar)
+  numParameters <- ncol(design)
+  parameterNames <- colnames(design)
+  contrastNames <- paste(parameterNames[2],parameterNames[1],sep="vs")
+  contrastsMatrix <- matrix(c(-1,1), nrow=ncol(design))
+  rownames(contrastsMatrix) <- parameterNames
+  colnames(contrastsMatrix) <- contrastNames
+  
+  fit<-lmFit(expres, design)
+  fit.main<-contrasts.fit(fit, contrastsMatrix)
+  fit.main<-eBayes(fit.main)
+  if (is.null(maxGenes)) 
+    maxGenes <- nrow(expres)
+  top.Diff <- topTable(fit.main, n=maxGenes, adjust.method = adjustMethod, lfc=minLogFC)
+  top.Diff <- top.Diff[top.Diff$adj.P.Val < fdrThreshold,]
+  return(top.Diff)
+}
+@
+
+<<quickAnalysisAll>>=
+groupVar <- as.factor(substr(colnames(prots), 1,2))
+topGenes <- quickLimma (as.matrix(genes), groupVar, fdrThreshold=0.05, minLogFC = 1)
+nrow(topGenes); head(topGenes, n=10)
+topProts <- quickLimma (as.matrix(prots), groupVar, fdrThreshold=0.05, minLogFC = 0)
+nrow(topProts); head(topProts, n=10)
+@
+
+\subsection{Biological significance analyisis of separate gene lists}
+
+The selected genes and proteins can be used to do some basic biological significance analysis
+
+<<IDs4GOAnalysis>>=
+allGenesEntrezID <- unique(getEG(rownames(genes), "hta20sttranscriptcluster.db"))
+topGenesEntrezID <- unique(getEG(rownames(topGenes), "hta20sttranscriptcluster.db"))
+allProtsEntrezID <- unique(select(Homo.sapiens, keys = rownames(prots), keytype = "UNIPROT", columns = c("ENTREZID"))[,"ENTREZID"])
+topProtsEntrezID <- unique(select(Homo.sapiens, keys = rownames(topProts), keytype = "UNIPROT", columns = c("ENTREZID"))[,"ENTREZID"])
+allGenesEntrezID <-allGenesEntrezID[!is.na(allGenesEntrezID)]
+topGenesEntrezID <-topGenesEntrezID[!is.na(topGenesEntrezID)]
+allProtsEntrezID <-allProtsEntrezID[!is.na(allProtsEntrezID)]
+topProtsEntrezID <-topProtsEntrezID[!is.na(topProtsEntrezID)]
+save(allGenesEntrezID, topGenesEntrezID, allProtsEntrezID, topProtsEntrezID, file=file.path(resultsDir, "gene&protsLists.Rda"))
+@
+
+<<basicGOAnalysis>>=
+require(GOstats)
+require(KEGG.db)
+geneGOparams = new("GOHyperGParams",
+    geneIds=topGenesEntrezID, universeGeneIds=allGenesEntrezID,
+    annotation="org.Hs.eg.db", ontology="BP",
+    pvalueCutoff=0.001, conditional=FALSE,
+    testDirection="over")
+geneKEGGparams = new("KEGGHyperGParams",
+    geneIds=topGenesEntrezID, universeGeneIds=allGenesEntrezID,
+    annotation="org.Hs.eg.db",  
+    pvalueCutoff=0.01, testDirection="over")
+
+  # Ejecutamos los analisis
+
+geneGOhyper = hyperGTest(geneGOparams)
+geneKEGGhyper = hyperGTest(geneKEGGparams)
+sumGeneGO <- summary(geneGOhyper)
+sumGeneKEGG <- summary(geneKEGGhyper)
+
+protGOparams = new("GOHyperGParams",
+    geneIds=topProtsEntrezID, universeGeneIds=allProtsEntrezID,
+    annotation="org.Hs.eg.db", ontology="BP",
+    pvalueCutoff=0.001, conditional=FALSE,
+    testDirection="over")
+protKEGGparams = new("KEGGHyperGParams",
+    geneIds=topProtsEntrezID, universeGeneIds=allProtsEntrezID,
+    annotation="org.Hs.eg.db",  
+    pvalueCutoff=0.01, testDirection="over")
+
+  # Ejecutamos los analisis
+
+protGOhyper = hyperGTest(protGOparams)
+protKEGGhyper = hyperGTest(protKEGGparams)
+sumProtGO <- summary(protGOhyper)
+sumProtKEGG <- summary(protKEGGhyper)
+
+# Escribimos los resultados en archivos html
+
+htmlReport(geneGOhyper, file=file.path(resultsDir, "GOAnalysis-Genes.html"), summary.args=list("htmlLinks"=TRUE))
+htmlReport(geneKEGGhyper, file=file.path(resultsDir, "KEGGAnalysis-Genes.html"), summary.args=list("htmlLinks"=TRUE))
+htmlReport(protGOhyper, file=file.path(resultsDir, "GOAnalysis-Proteins.html"), summary.args=list("htmlLinks"=TRUE))
+htmlReport(protKEGGhyper, file=file.path(resultsDir, "KEGGAnalysis-Proteins.html"), summary.args=list("htmlLinks"=TRUE))
+@
+
+The results of the analyses are available at files: 
+\begin{itemize}
+\item \texttt{GOAnalysis-Genes.html}
+\item \texttt{KEGGAnalysis-Genes.html}
+\item \texttt{GOAnalysis-Proteins.html}
+\item \texttt{KEGGAnalysis-Proteins.html}
+\end{itemize}
+
+
+A naive comparison between the results of both analyses provides an idea of how similar are both results.
+<<summaryGO>>=
+futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger")
+require(VennDiagram)
+geneGOIds   <- sumGeneGO$GOBPID
+geneKEGGIds <- sumGeneKEGG$KEGGID
+protGOIds   <- sumProtGO$GOBPID
+protKEGGIds <- sumProtKEGG$KEGGID
+@
+
+<<plotGO1>>=
+myVennGO<- venn.diagram(x= list(Genes=geneGOIds, Proteins=protGOIds), 
+                        main="Comparison of selected GO terms from (DE) Proteins and Genes",
+                        filename=NULL, lty = "blank",  
+                        fill=c("pink1", "skyblue"))
+grid.draw(myVennGO)
+@
+
+
+<<plotGO3>>=
+myVennKEGG<- venn.diagram(x= list(Genes=geneKEGGIds, Proteins=protKEGGIds),
+                           main="Comparison of selected KEGG terms from (DE) Proteins and Genes",
+                        filename=NULL, lty = "blank",  
+                        fill=c("pink1", "skyblue"))
+grid.draw(myVennKEGG)
+@
+
+There is an \textbf{almost absolute discrepancy} between both datasets.
+
+
+\section{Gene list comparison using \texttt{goProfiles}}
+
+The \texttt{goProfiles} approach provides an alternative way to analyze annotations and, what is more, a way to compare gene lists based on their Gene Ontology annotations.
+
+The idea underlying the method consists of first considering all the GO annotations for a given list of genes and then turning this representation into something that is easier to manipulate.
+
+A list of genes induces a sub-graph which can also be hard to apprehend. 
+An alternative approach consists of projecting ("slicing") the graphs at a given level of the ontologies. 
+This yields a table of possibly repeated frequencies which we call functional profiles 
+
+Now if we want to ...\begin{itemize}
+  \item Summarize the gene list we can use its profile \emph{at a given level of the graph}
+  \item   Compare two or more gene lists, we can compare the distribution of counts between their corresponding profiles using ad-hoc statistics.
+\end{itemize}
+
+\subsection{Summarizing gene lists}
+
+<<goProfiles1, eval=TRUE>>=
+require(goProfiles)
+if(!(exists("allGenesEntrezID"))) load (file=file.path(resultsDir, "gene&protsLists.Rda"))
+allGenesEntrezID <-allGenesEntrezID[!is.na(allGenesEntrezID)]
+topGenesEntrezID <-topGenesEntrezID[!is.na(topGenesEntrezID)]
+allProtsEntrezID <-allProtsEntrezID[!is.na(allProtsEntrezID)]
+topProtsEntrezID <-topProtsEntrezID[!is.na(topProtsEntrezID)]
+
+bp2p<- basicProfile(topProtsEntrezID, orgPackage = "org.Hs.eg.db", lev=2)
+plotProfiles(bp2p, aTitle= "GO profile at level 2 for (DEG) proteins")
+bp3p <- basicProfile(topProtsEntrezID, orgPackage = "org.Hs.eg.db", lev=3)
+plotProfiles(bp3p, aTitle= "GO profile at level 3 for (DEG) prots")
+bp2g<- basicProfile(topGenesEntrezID, orgPackage = "org.Hs.eg.db", lev=2)
+plotProfiles(bp2g, aTitle= "GO profile at level 2 for (DEG) genes")
+bp3g <- basicProfile(topGenesEntrezID, orgPackage = "org.Hs.eg.db", lev=3)
+plotProfiles(bp3g, aTitle= "GO profile at level 3 for (DEG) genes")
+
+genes.prots.2 <-mergeProfilesLists(bp2g, bp2p, profNames=c("Genes2", "Prots2"))
+plotProfiles(genes.prots.2 , percentage=TRUE, multiplePlots=TRUE, labelWidth=30)
+
+
+@
+
+\subsection{Comparing gene lists}
+<<compareGeneLists>>=
+complev2 <- goProfiles::compareGeneLists (topProtsEntrezID, topGenesEntrezID, 
+                             idType = "Entrez", onto = "ANY", level = 2, 
+                             orgPackage ="org.Hs.eg.db")
+compSummary(complev2)
+complev3 <- compareGeneLists (topProtsEntrezID, topGenesEntrezID, 
+                             idType = "Entrez", onto = "ANY", level = 3, 
+                             orgPackage ="org.Hs.eg.db")
+compSummary(complev3)
+@
+
+
+
+\end{document}

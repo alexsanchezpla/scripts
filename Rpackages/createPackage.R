@@ -11,11 +11,11 @@ SO <- version[["os"]]
 if (SO=="linux-gnu")
 {pkgDir <- "~/Dropbox (VHIR)/Scripts/Rpackages"
 }else{
-  pkgDir <- E:/Dropbox (VHIR)/Scripts/Rpackages
+  pkgDir <- "E:/Dropbox (VHIR)/Scripts/Rpackages"
 }
 
 setwd(pkgDir)
-packgName <-"plotPCA2"
+packgName <-"links2File"
 
 # Per crear el paquet fer servir la instrucció de devtools
 # create(packgName)
@@ -58,9 +58,9 @@ document()
 setwd(file.path(pkgDir, packgName))
 check()
 
-# per instalar
+# per instalar desde local
 setwd(pkgDir)
-install(packgName)  # desde local
+install(packgName, force=TRUE)  #
 
 # per posar-lo a github actualitzat
 # des d'una consola del sistema (linux) o de git (windows)fer:
@@ -71,6 +71,6 @@ install(packgName)  # desde local
 
 # A partir d'això podem instal·lar-lo en qualsevol ordinador amb la instrucció 'install_github'
 require(devtools)
-install_github(paste('alexsanchezpla/scripts/Rpackages/', packgName, sep="")) # desde github
+install_github(paste('alexsanchezpla/scripts/Rpackages/', packgName, sep=""), force.install=TRUE) # desde github
 require(packgName, character.only=TRUE)
 
