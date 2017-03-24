@@ -1,0 +1,380 @@
+
+<<setDirs,echo=FALSE>>=
+mainDir <-getwd()
+workingDir <- mainDir
+dataDir <-file.path(mainDir, "dades")
+celDir <-  file.path(workingDir, "celfiles")
+celDir2 <-  file.path(workingDir, "celfiles2")
+resultsDir <- file.path(workingDir, "results")
+imagesDir<-file.path(mainDir,"images")
+@
+
+<<options,echo=FALSE>>=
+require(knitr)
+opts_chunk$set(fig.path = imagesDir, echo=FALSE, message=FALSE,warnings = FALSE )
+options(warn=-1)
+@
+
+<<loadData2,echo=FALSE>>=
+load("afterTopTabs.Rda")
+@
+
+\subsection{Multiple comparisons between gene lists}
+
+In order to find genes which have been afected by two or more treatments, a multiple comparisons analysis has been performed.  Associated to each group of multiple comparisons, Venn diagrams were plotted. Files \texttt{VennDiagram.XXX$_$YYY.pdf} and \texttt{multComp.XXX$_$YYY.csv}, where \texttt{XXXYYY}, refers to every group of comparisons performed.
+
+<<VDfunction,echo=FALSE,results='hide'>>=
+vennfrom2csv<-function(file1,name1,file2,name2,FC,pval) {
+  ##seleccionem els cutoffs
+  ##llista1
+  pass1 <- file1[which(file1$P.Value<pval & abs(file1$logFC)>FC),]
+  #dim(pass1)
+  ##llista2
+  pass2 <- file2[which(file2$P.Value<pval & abs(file2$logFC)>FC),]
+  #dim(pass2)
+
+  ####mirem que no entrades repetides per Affy ID i s'ajunten
+  #list1 <- as.character(sort(unique(pass1$X)))
+  #length(list1)
+  #list2 <- as.character(sort(unique(pass2$X)))
+  #length(list2)
+
+  list1 <- as.character(rownames(pass1))
+  #length(list1)
+  list2 <- as.character(rownames(pass2))
+  #length(list2)
+
+  list <- c(list1, list2)
+  #length(list)
+  list <- sort(unique(list))
+  #length(list)
+
+  ####es crea un data.frame que omplim de 0 i després de 1 si hi coexisteixen en les dues llistes
+  df <- data.frame(genes = list, l1 = rep(0,length(list)), l2 = rep(0,length(list)))
+  #head(df)
+
+  df$l1 <- as.numeric((df$genes %in% list1)==T)
+  df$l2 <- as.numeric((df$genes %in% list2)==T)
+
+  ##Fem el diagrama de venn
+  overlap<-calculate.overlap(x=list("list1"=list1,"list2"=list2))
+
+  draw.pairwise.venn(length(overlap$a1),length(overlap$a2),length(overlap$a3),
+                  category=c(name1,name2),scaled = TRUE,euler.d = TRUE, 
+                 fill = c("blue", "red"),lty = "blank",cat.pos = c(190, 190))
+  
+  ##es grava l'arxiu de text on s'indica quin gen hi és a cada venn
+  datos<-file2[which(rownames(file2) %in% df$genes),]
+  datos<-datos[,-c(3:length(colnames(datos)))]
+  rownames(df)<-df$genes
+  datos2<-merge(datos,df,by=0)
+  datos2<-datos2[,-c(3,4)]
+  colnames(datos2)<-c("AffyID","Symbols",name1,name2)
+  write.csv(datos2, file=file.path(resultsDir,paste("mult.comp.",name1,"_",name2,".csv",sep = "")),sep=";")
+}
+@
+\\
+
+Venn diagram for multiple comparison SHAM.IPvsSHAM.CL versus ISC.IPvs ISC.CL is shown in figure \ref{fig:venn1}. \textbf{No genes in common with log fold change of 0 and non adjusted pvalue of 0.01} between the two comparisons.
+
+
+<<venn1, echo=FALSE,results='hide',message=FALSE>>=
+library(VennDiagram)
+library(gridExtra) #para poder añadir el título al gráfico
+top1 <- csv2topTab_SHAM.IPvsSHAM.CL
+name1 <-"SHAM.IPvsSHAM.CL"
+top2 <- csv2topTab_ISC.IPvsISC.CL
+name2<-"ISC.IPvsISC.CL"
+
+pdf(file.path(resultsDir,"VennDiagram1.pdf"))
+grid.arrange(gTree(children=vennfrom2csv(top1,name1,top2,name2,0,0.01)),top=paste("Venn Diagram for: ",name1, " vs ",name2," (logFC 0 & pval 0.01)",sep=""))
+dev.off()  
+@
+\begin{figure}
+\centering
+\includegraphics[scale=0.4]{/home/rgonzalo/Documents/Estudis/2016-11-AlbaSimats-VHIR-MAClariomS-B3295/results/VennDiagram1.pdf}
+\caption{\label{fig:venn1}Venn diagram for comparisons SHAM.IPvsSHAM.CL vs ISC.IPvsISC.CL}
+\end{figure}
+
+Venn diagram for multiple comparison ISC.IPvsSHAM.IP versus ISC.CLvs SHAM.CL is shown in figure \ref{fig:venn2}. In this multiple comparison \textbf{26 genes in common with log fold change of 0 and non adjusted pvalue of 0.01} beween the two comparisons.
+
+
+<<venn2,echo=FALSE,results='hide',message=FALSE>>=
+top3 <- csv2topTab_ISC.IPvsSHAM.IP
+name3 <-"ISC.IPvsSHAM.IP"
+top4 <- csv2topTab_ISC.CLvsSHAM.CL
+name4<-"ISC.CLvsSHAM.CL"
+pdf(file.path(resultsDir,"VennDiagram2.pdf"))
+grid.arrange(gTree(children=vennfrom2csv(top3,name3,top4,name4,0,0.01)),top=paste("Venn Diagram for: ",name3, " vs ",name4," (logFC 0 & pval 0.01)",sep=""))
+dev.off()  
+@
+\begin{figure}
+\centering
+\includegraphics[scale=0.4]{/home/rgonzalo/Documents/Estudis/2016-11-AlbaSimats-VHIR-MAClariomS-B3295/results/VennDiagram2.pdf}
+\caption{\label{fig:venn2}Venn diagram for comparisons ISC.IPvsSHAM.IP vs ISC.CLvsSHAM.CL}}
+\end{figure}
+
+Venn diagram for multiple comparison ISC.IPvsISC.CL versus ISC.IPvs SHAM.IP is shown in figure \ref{fig:venn3}. \textbf{70 genes in common with log fold change of 0 and non adjusted pvalue of 0.01} between the two comparisons.
+
+
+<<venn3, echo=FALSE,results='hide',message=FALSE>>=
+library(VennDiagram)
+library(gridExtra) #para poder añadir el título al gráfico
+top1 <- csv2topTab_ISC.IPvsSHAM.IP
+name1 <-"ISC.IPvsSHAM.IP"
+top2 <- csv2topTab_ISC.IPvsISC.CL
+name2<-"ISC.IPvsISC.CL"
+
+pdf(file.path(resultsDir,"VennDiagram3.pdf"))
+grid.arrange(gTree(children=vennfrom2csv(top1,name1,top2,name2,0,0.01)),top=paste("Venn Diagram for: ",name1, " vs ",name2," (logFC 0 & pval 0.01)",sep=""))
+dev.off()  
+@
+\begin{figure}
+\centering
+\includegraphics[scale=0.4]{/home/rgonzalo/Documents/Estudis/2016-11-AlbaSimats-VHIR-MAClariomS-B3295/results/VennDiagram3.pdf}
+\caption{\label{fig:venn3}Venn diagram for comparisons ISC.IPvsSHAM.IP vs ISC.IPvsISC.CL}
+\end{figure}
+
+\newpage
+
+\subsection{Expression profiles visualization: Heatmaps}
+It is interesting to look for common patterns of regulation between different experimental conditions. Every clustering is represented in a heatmap shown in files \texttt{HeatMap.XXX$_$YYY.pdf}, where \texttt{XXX$_$YYY} refers to the comparisons used.
+
+<<prepareData, echo=FALSE,results='hide'>>=
+library(gplots)
+library(limma)
+library(Biobase)
+
+##preparar dades per heatmap SHAM
+res1<-decideTests(fit.main.SHAM,method="separate", p.value=0.05, lfc=0.6,adjust.method="none")
+sum.res.rows1<-apply(abs(res1),1,sum)
+res.selected1<-res1[sum.res.rows1!=0,] 
+print(summary(res1))
+
+probeNames<-rownames(res1)
+probeNames.selected<-probeNames[sum.res.rows1!=0]
+geneSimbols.selected<-csv2topTab_ISC.CLvsSHAM.CL[probeNames.selected,]#utilizamos csv2...(como podriamos utilzar cualquiera de los cuatro) ya que tiene los 9652 AffyID filtrados.
+exprs2cluster <-exprs(eset_filtered_SHAM)[probeNames.selected,]
+
+exprs2cluster.end<-merge(geneSimbols.selected,exprs2cluster,by=0)
+rnames<-exprs2cluster.end$Gene.Symbol
+rownames(exprs2cluster.end)<-exprs2cluster.end$Gene.Symbol
+exprs2cluster.end<-exprs2cluster.end[,-c(1:9)]
+colnames(exprs2cluster.end)<-targetsSHAM$ShortName
+mat_data<-data.matrix(exprs2cluster.end)
+rownames(mat_data) <- rnames
+order_data<-mat_data[,c(1,3,5,2,4,6)]
+
+##preparar dades per heatmap ISC
+res.ISC<-decideTests(fit.main.ISC,method="separate", p.value=0.05, lfc=0.6,adjust.method="none")
+sum.res.rows.ISC<-apply(abs(res.ISC),1,sum)
+res.selected.ISC<-res.ISC[sum.res.rows.ISC!=0,] 
+print(summary(res.ISC))
+
+probeNames.ISC<-rownames(res.ISC)
+probeNames.selected.ISC<-probeNames.ISC[sum.res.rows.ISC!=0]
+geneSimbols.selected.ISC<-csv2topTab_ISC.CLvsSHAM.CL[probeNames.selected.ISC,]#utilizamos csv2...(como podriamos utilzar cualquiera de los cuatro) ya que tiene los 9652 AffyID filtrados.
+exprs2cluster.ISC <-exprs(eset_filtered_ISC)[probeNames.selected.ISC,]
+
+exprs2cluster.end.ISC<-merge(geneSimbols.selected.ISC,exprs2cluster.ISC,by=0)
+rnames.ISC<-exprs2cluster.end.ISC$Gene.Symbol
+rownames(exprs2cluster.end.ISC)<-exprs2cluster.end.ISC$Gene.Symbol
+exprs2cluster.end.ISC<-exprs2cluster.end.ISC[,-c(1:9)]
+colnames(exprs2cluster.end.ISC)<-targetsISC$ShortName
+mat_data.ISC<-data.matrix(exprs2cluster.end.ISC)
+rownames(mat_data.ISC) <- rnames.ISC
+order_data_ISC<-mat_data.ISC[,c(1,3,5,7,9,11,13,2,4,6,8,10,12,14)]
+
+
+#grupColors <- targets$Colores
+mypalette <- colorRampPalette(c("blue", "white", "red"))(n = 299)
+@
+\\
+Heatmap for comparison \textbf{SHAM.IPvsSHAM.CL} (figure \ref{fig:heatmap1}) has been performed with genes with a \textbf{pValue 0.05 \& logFC 0.6}, given a total of \textbf{142 genes} included. Hierarquical clustering for samples (columns), shows a perfect classification of all samples.
+\\
+%' \begin{figure}[htbp]
+%' \centering
+%' <<heatmap1,echo=FALSE,fig.width=6,fig.height=6>>=
+%' par(mfrow=c(1,1),cex.main=0.7)
+%' heatmap.2(order_data,
+%'           Rowv=TRUE,
+%'           #Colv=FALSE,
+%'           main="HeatMap for SHAM.IPvsSHAM.CL pValue 0.05 & logFC 0.6",
+%'           scale="row",
+%'           col=mypalette,
+%'           sepcolor="white",
+%'           sepwidth=c(0.05,0.05),
+%'           cexRow=0.5,
+%'           cexCol=0.6,
+%'           key=FALSE,
+%'           density.info="histogram",
+%'           tracecol=NULL,
+%'           srtCol=30,
+%'           ColSideColors = c(rep("darkgreen",3 ),rep("lightgreen",3))
+%'           )
+%' @
+%' \caption{Heatmap for comparison SHAM.IPvsSHAM.CL with pValue 0.05 $&$ logFC 0.6}
+%' \label{fig:heatmap1}
+%' \end{figure}
+\\
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{results/HeatmapSHAMIPvsSHAMCL.pdf}
+\caption{\label{fig:heatmap1}Heatmap for comparison SHAM.IPvsSHAM.CL with pValue 0.05 $&$ logFC 0.6}}
+\end{figure}
+
+
+Heatmap for comparison \textbf{ISC.IPvsISC.CL} (figure \ref{fig:heatmap3}) has been performed with genes with a \textbf{pValue 0.05 \& logFC 0.6}, given a total of \textbf{49 genes} included. Hierarquical clustering for samples (columns), shows a perfect classification of all samples except for samples \texttt{15BT.ISC.CL.2} and \texttt{4BT.ISC.CL1}, that group with \texttt{IP} samples.
+\\
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{results/HeatmapISCIPvsISCCL.pdf}
+\caption{\label{fig:heatmap3}Heatmap for comparison ISC.IPvsISC.CL with pValue 0.05 $&$ logFC 0.6}}
+\end{figure}
+
+%' \begin{figure}[htbp]
+%' \centering
+%' <<heatmapISC,echo=FALSE,fig.width=6,fig.height=6>>=
+%' par(mfrow=c(1,1),cex.main=0.7)
+%' heatmap.2(order_data_ISC,
+%'           Rowv=TRUE,
+%'           #Colv=FALSE,
+%'           main="HeatMap for ISC.IPvsISC.CL pValue 0.05 & logFC 0.6",
+%'           scale="row",
+%'           col=mypalette,
+%'           sepcolor="white",
+%'           sepwidth=c(0.05,0.05),
+%'           cexRow=0.5,
+%'           cexCol=0.6,
+%'           key=FALSE,
+%'           density.info="histogram",
+%'           tracecol=NULL,
+%'           srtCol=30,
+%'           ColSideColors = c(rep("darkblue",7 ),rep("lightblue",7))
+%'           )
+%' @
+%' \caption{Heatmap for comparison ISC.IPvsISC.CL with pValue 0.05 $&$ logFC 0.6}
+%' \label{fig:heatmap3}
+%' \end{figure}
+\\
+<<preparedata2,echo=FALSE,results='hide'>>=
+res2<-decideTests(fit.main2,method="separate", p.value=0.05, lfc=0.6,adjust.method="none")
+sum.res.rows2<-apply(abs(res2),1,sum)
+res.selected2<-res2[sum.res.rows2!=0,] 
+print(summary(res2))
+
+probeNames<-rownames(res2)
+probeNames.selected<-probeNames[sum.res.rows2!=0]
+geneSimbols.selected<-csv2topTab_ISC.CLvsSHAM.CL[probeNames.selected,]#utilizamos csv2...(como podriamos utilzar cualquiera de los cuatro) ya que tiene los 9650 AffyID filtrados.
+exprs2cluster <-exprs(eset_filtered)[probeNames.selected,]
+
+exprs2cluster.end<-merge(geneSimbols.selected,exprs2cluster,by=0)
+rnames<-exprs2cluster.end$Gene.Symbol
+rownames(exprs2cluster.end)<-exprs2cluster.end$Gene.Symbol
+exprs2cluster.end<-exprs2cluster.end[,-c(1:9)]
+colnames(exprs2cluster.end)<-targets$ShortName
+mat_data<-data.matrix(exprs2cluster.end)
+rownames(mat_data) <- rnames
+order_data2<-mat_data[,c(1,3,9,11,15,17,19,2,4,10,12,16,18,20,5,7,13,6,8,14)]
+
+#grupColors <- targets$Colores
+mypalette <- colorRampPalette(c("blue", "white", "red"))(n = 299)
+par(mfrow=c(1,1),cex.main=0.6)
+@
+Heatmap for multiple comparison \textbf{ISC.IPvsSHAM.IP versus ISC.CLvs SHAM.CL} (figure \ref{fig:heatmap2}) has been performed with genes with a \textbf{pValue 0.05 \& logFC 0.6}, given a total of \textbf{329 genes} included. Hierarquical clustering for samples (columns), shows a perfect classification of samples, except for two of \texttt{ISC.CL} group, that allocates with \texttt{ISC.IP}.
+\\
+\begin{figure}
+\centering
+\includegraphics[scale=0.7]{results/HeatmapMultipleComparison.pdf}
+\caption{\label{fig:heatmap2}Heatmap for multiple comparison SHAM.IPvsSHAM.CL versus ISC.IPvsISC.CL with pValue 0.05 $&$ logFC 0.5}}
+\end{figure}
+
+
+%' \begin{figure}[htbp]
+%' \centering
+%' <<heatmap2,fig.width=6,fig.height=6>>=
+%' par(mfrow=c(1,1),cex.main=0.7)
+%' heatmap.2(order_data2,
+%'           Rowv=TRUE,
+%'           #Colv=FALSE,
+%'           main="HeatMap for ISC.IPvsSHAM.IP_ISC.CLvsSHAM.CL pValue 0.05 & logFC 0.6",
+%'           scale="row",
+%'           col=mypalette,
+%'           sepcolor="white",
+%'           sepwidth=c(0.05,0.05),
+%'           cexRow=0.5,
+%'           cexCol=0.6,
+%'           key=FALSE,
+%'           density.info="histogram",
+%'           tracecol=NULL,
+%'           srtCol=30,
+%'           ColSideColors = c(rep("darkblue", 7),rep("lightblue", 7),
+%'                             rep("darkgreen",3 ),rep("lightgreen",3))
+%'           )
+%' @
+%' \caption{Heatmap for multiple comparison SHAM.IPvsSHAM.CL versus ISC.IPvsISC.CL with pValue 0.05 $&$ logFC 0.5}
+%' \label{fig:heatmap2}
+%' \end{figure}
+\\
+<<heatmaps2pdf,results='hide',echo=FALSE>>=
+pdf(file.path(resultsDir,"HeatmapSHAMIPvsSHAMCL.pdf"))
+par(mfrow=c(1,1),cex.main=0.6)
+heatmap.2(order_data,
+          Rowv=TRUE,
+          #Colv=FALSE,
+          main="HeatMap for SHAM.IPvsSHAM.CL pValue 0.05 & logFC 0.6",
+          scale="row",
+          col=mypalette,
+          sepcolor="white",
+          sepwidth=c(0.05,0.05),
+          cexRow=0.5,
+          cexCol=0.6,
+          key=FALSE,
+          density.info="histogram",
+          tracecol=NULL,
+          srtCol=30,
+          ColSideColors = c(rep("darkgreen",3 ),rep("lightgreen",3))
+          )
+dev.off()
+
+pdf(file.path(resultsDir,"HeatmapISCIPvsISCCL.pdf"))
+par(mfrow=c(1,1),cex.main=0.7)
+heatmap.2(order_data_ISC,
+          Rowv=TRUE,
+          #Colv=FALSE,
+          main="HeatMap for ISC.IPvsISC.CL pValue 0.05 & logFC 0.6",
+          scale="row",
+          col=mypalette,
+          sepcolor="white",
+          sepwidth=c(0.05,0.05),
+          cexRow=0.5,
+          cexCol=0.6,
+          key=FALSE,
+          density.info="histogram",
+          tracecol=NULL,
+          srtCol=30,
+          ColSideColors = c(rep("darkblue",7 ),rep("lightblue",7))
+          )
+dev.off()
+
+pdf(file.path(resultsDir,"HeatmapMultipleComparison.pdf"))
+par(mfrow=c(1,1),cex.main=0.6)
+heatmap.2(order_data2,
+          Rowv=TRUE,
+          #Colv=FALSE,
+          main="HeatMap for ISC.IPvsSHAM.IP_ISC.CLvsSHAM.CL pValue 0.05 & logFC 0.6",
+          scale="row",
+          col=mypalette,
+          sepcolor="white",
+          sepwidth=c(0.05,0.05),
+          cexRow=0.5,
+          cexCol=0.6,
+          key=FALSE,
+          density.info="histogram",
+          tracecol=NULL,
+          srtCol=30,
+          ColSideColors = c(rep("darkblue", 7),rep("lightblue", 7),
+                            rep("darkgreen",3 ),rep("lightgreen",3))
+          )
+dev.off()
+@

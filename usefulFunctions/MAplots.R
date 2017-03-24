@@ -1,3 +1,13 @@
+#' Draw or or several MA-plot from an expression data matrix
+#' @param myData
+#' @param selected
+#' @param paired
+#' @param xcol
+#' @param ycol
+#' @keywords MAplot, normalization
+#' examples
+#' 
+
 oneMAPlot <-  function (myData, selected=1, paired=FALSE, xcol=NULL, ycol=NULL){
   #  opt<- par(mfrow=c(1,1)) 
   if (paired){
@@ -16,14 +26,14 @@ oneMAPlot <-  function (myData, selected=1, paired=FALSE, xcol=NULL, ycol=NULL){
   }else{
     plotTitle = paste("MAplot: ",colnames(myData)[selected],sep=" ")
   }
-  ma.plot(A, M, main=plotTitle )  # colnames(myData)[selected])
+  plot(A, M, main=plotTitle )  # colnames(myData)[selected])
+  abline(h=0)
   #  par(opt)
 }
 
-
-blockMAPlots <- function (myData, rc){
+blockMAPlots <- function (myData, rc, paired=FALSE){
   opt<- par(mfrow=c(rc,rc))
-  if (paired){}
+  if (paired){} # implementation pending
   medians <-apply(myData,1,median, na.rm=TRUE)
   for (i in 1:ncol(myData))
   {
@@ -32,7 +42,7 @@ blockMAPlots <- function (myData, rc){
     M <- log(x+1)-log(medians)
     A <- 0.5*(log(x+1)+log(medians))
     name = paste("MAplot: ",colnames(myData)[i],sep=" ")
-    ma.plot(A, M, main=colnames(myData)[i])
+    plot(A, M, main=colnames(myData)[i])
   }
   par(opt)
 }

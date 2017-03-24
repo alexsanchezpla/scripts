@@ -29,7 +29,7 @@ De moment els he reunit tots i poso aquest índex per enrecordar-me del que hi h
 - `OntoAnalysis.Rnw`: Una primera versió de fa anys que tractava de com manegar informació de la GO
 - `Talk-Integrating Omics Data using GeneSets.html`: Seminari sobre IntegrativeGene Set Analysis
 - 
-- `GSAAnalysis-2016-12.Rnw`: Arxiu d'analisi per al Francesc Moreso. Aplica  els quatre mètodes de GSA.
+- `GSAAnalysis-2017-01.Rnw`: Arxiu d'analisi per al Francesc Moreso. Aplica  els quatre mètodes de GSA.
 
 Podem resumir-ho en una taula:
 <!-- 
@@ -37,6 +37,7 @@ Aquesta taula l'he fet amb un generador de taules de Markdown disponible a:
 http://www.tablesgenerator.com/markdown_tables
 No nomes es una birgueria sino que permet descarregar les taules. La de sota es troba a l'arxiu: GSEAReports.tgn en el mateix directori que aquest arxiu
 --> 
+
 |                                                                      |     Anot     |    Anot    |    Anot   |   ORA   |  ORA  |    Vis   | ORA   |   compare  | GSEA |     GSEA    |  GSEA |   GSEA   |   GSEA   | Netw  | Netw |
 |----------------------------------------------------------------------|:------------:|:----------:|:---------:|:-------:|:-----:|:--------:|-------|:----------:|:----:|:-----------:|:-----:|:--------:|:--------:|-------|------|
 |                                                                      | gLists filt. | gIDs conv. | GO Terms  | GOstats | topGO | GO Graph | DAVID | goProfiles |  GSA | naif (Wilc) | ROAST | naif (t) | Integrat | FGNet | IPA  |
