@@ -2,7 +2,6 @@
 ###
 ### Build  a table with info about variables to create the excel file with group names
 ###
-
 varsTable <- function(x){
   index <- 1:ncol(x)
   vars <- colnames(x)
@@ -12,13 +11,15 @@ varsTable <- function(x){
 }
 
 ###
-### Create the groups object to be used for MFA
+### Return the subset of variables (columns) associated with a given label
 ###
-
 extractVarNames <- function(varsAndGroupsDF, label){
   return(with(varsAndGroupsDF, vars[Group==label]))
 }
 
+###
+### Create the groups of objects that may be used to run a multiple Factor Analysis on a dataset
+###
 creaGrups <- function (myDf, GroupsNames){
   tipoDatos <- sapply(myDf, class)
   myVarsNames <- data.frame(idx =1:ncol(myDf), 
@@ -40,7 +41,8 @@ creaGrups <- function (myDf, GroupsNames){
                                                    groupNames[i]), 
                              num =groupsOfVars$sizes[i] , 
                              name = groupNames[i], 
-                             type = groupsOfVars$varTypes[1] )
+                             # type = groupsOfVars$varTypes[1] )
+                             type = groupsOfVars$varTypes[[i]][1] )  ### ARA SÍ!!!!
   }
   names(listOfVars) <- groupNames
   listOfDatasets<- list()
@@ -55,7 +57,6 @@ creaGrups <- function (myDf, GroupsNames){
 ### 
 ### checkFactorialStructure of the created groups object
 ###
-
 showGroupsinList <- function(alistOfVars){
   for (i in 1:length(alistOfVars)){
     cat(names(alistOfVars[i]), "\n")

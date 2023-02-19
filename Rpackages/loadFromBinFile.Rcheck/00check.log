@@ -1,0 +1,17 @@
+* using log directory ‘/home/alex/Nuevo Equipo VHIR10 Dropbox/Alex al VHIR/SotaCV/Scripts/Rpackages/loadFromBinFile.Rcheck’
+* using R version 4.2.2 Patched (2022-11-10 r83330)
+* using platform: x86_64-pc-linux-gnu (64-bit)
+* using session charset: UTF-8
+* using options ‘--no-manual --as-cran’
+* checking for file ‘loadFromBinFile/DESCRIPTION’ ... OK
+* checking extension type ... Package
+* this is package ‘loadFromBinFile’ version ‘0.1.0’
+* package encoding: UTF-8
+* checking package namespace information ... OK
+* checking package dependencies ... ERROR
+Namespace dependency missing from DESCRIPTION Imports/Depends entries: ‘methods’
+
+See section ‘The DESCRIPTION file’ in the ‘Writing R Extensions’
+manual.
+* DONE
+Status: 1 ERROR

@@ -1,0 +1,13 @@
+Package: loadFromBinFile
+Type: Package
+Title: Load variables from a binary (.Rda) files
+Version: 0.1.0
+Author: Alex Sanchez-Pla
+Maintainer: Alex Sanchez-Pla <asanchez@ub.edu>
+Description: Many binary files contain multiple variables, but we often need only aone or a few. This package allows loading onbe variable selected by its position or its name.
+License: GPL
+Encoding: UTF-8
+Import: methods
+RoxygenNote: 7.2.3
+NeedsCompilation: no
+Packaged: 2023-02-17 09:23:09 UTC; alex
